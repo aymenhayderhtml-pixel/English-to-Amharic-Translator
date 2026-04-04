@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.amharictranslator.data.AmharicTranslator
+import dev.amharictranslator.data.SmartLearningEngine
+import dev.amharictranslator.data.SmartLearningPreview
 import dev.amharictranslator.data.Suggestion
 import dev.amharictranslator.data.TranslationResult
 import dev.amharictranslator.ui.theme.AmharicTranslatorTheme
@@ -83,13 +86,18 @@ fun TranslatorApp() {
     val scrollState = rememberScrollState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val learningEngine = remember(context) { SmartLearningEngine(context.applicationContext) }
 
     var englishInput by rememberSaveable { mutableStateOf("good morning") }
     var typingInput by rememberSaveable { mutableStateOf("he hu hi ha hee h ho") }
+    var learningVersion by remember { mutableStateOf(0) }
 
     val translationResult = remember(englishInput) { AmharicTranslator.translate(englishInput) }
     val typingPreview = remember(typingInput) { AmharicTranslator.transliterate(typingInput) }
     val typingSuggestions = remember(typingInput) { AmharicTranslator.suggestions(typingInput) }
+    val smartLearningPreview = remember(englishInput, learningVersion) {
+        learningEngine.preview(englishInput)
+    }
 
     val translatorExamples = remember {
         listOf("hello", "good morning", "thank you", "where is the market", "i am happy", "coffee", "please")
@@ -133,22 +141,28 @@ fun TranslatorApp() {
 
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        TranslationSection(
-                            modifier = Modifier.weight(1f),
+                    TranslationSection(
+                            modifier = Modifier.fillMaxWidth(0.49f),
                             input = englishInput,
                             onInputChange = { englishInput = it },
                             result = translationResult,
                             examples = translatorExamples,
-                            onExamplePick = { englishInput = it },
+                            onExamplePick = {
+                                englishInput = it
+                                learningEngine.learnPhrase(it)
+                                learningVersion += 1
+                            },
                             onCopy = {
                                 if (translationResult.output.isNotBlank()) {
                                     clipboard.setText(AnnotatedString(translationResult.output))
+                                    learningEngine.learnPhrase(englishInput)
+                                    learningVersion += 1
                                     Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )
                         KeyboardSection(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(0.49f),
                             input = typingInput,
                             onInputChange = { typingInput = it },
                             output = typingPreview,
@@ -172,10 +186,16 @@ fun TranslatorApp() {
                             onInputChange = { englishInput = it },
                             result = translationResult,
                             examples = translatorExamples,
-                            onExamplePick = { englishInput = it },
+                            onExamplePick = {
+                                englishInput = it
+                                learningEngine.learnPhrase(it)
+                                learningVersion += 1
+                            },
                             onCopy = {
                                 if (translationResult.output.isNotBlank()) {
                                     clipboard.setText(AnnotatedString(translationResult.output))
+                                    learningEngine.learnPhrase(englishInput)
+                                    learningVersion += 1
                                     Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -199,6 +219,24 @@ fun TranslatorApp() {
                     }
                 }
             }
+
+            SmartLearningSection(
+                modifier = Modifier.fillMaxWidth(),
+                input = englishInput,
+                preview = smartLearningPreview,
+                onTrain = {
+                    if (englishInput.isNotBlank()) {
+                        learningEngine.learnPhrase(englishInput)
+                        learningVersion += 1
+                        Toast.makeText(context, "Learning updated", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onReset = {
+                    learningEngine.reset()
+                    learningVersion += 1
+                    Toast.makeText(context, "Learning reset", Toast.LENGTH_SHORT).show()
+                }
+            )
 
             FeaturesSection()
         }
@@ -520,7 +558,160 @@ private fun FeaturesSection() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             FeatureItem("01", "Phrasebook Lookup", "Common phrases matched from a curated local dictionary.", AppColors.Gold)
             FeatureItem("02", "Transliteration Fallback", "Unknown text is mapped through offline syllable rules.", AppColors.Teal)
-            FeatureItem("03", "Future: Keyman Integration", "Full keyboard support with richer prediction coming soon.", AppColors.Terracotta)
+            FeatureItem("03", "Smart Autocorrect", "The app learns approved phrases locally and suggests better next words.", AppColors.Terracotta)
+            FeatureItem("04", "Future: Keyman Integration", "Full keyboard support with richer prediction coming soon.", AppColors.Gold)
+        }
+    }
+}
+
+@Composable
+private fun SmartLearningSection(
+    modifier: Modifier,
+    input: String,
+    preview: SmartLearningPreview,
+    onTrain: () -> Unit,
+    onReset: () -> Unit
+) {
+    SectionCard(
+        modifier = modifier,
+        accentColor = AppColors.Teal,
+        tag = "SMART AUTOCORRECT",
+        title = "Local learning assistant",
+        subtitle = "Learns from phrases you accept on-device"
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.animateContentSize(
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+            )
+        ) {
+            Text(
+                text = "This mini AI keeps a private memory of the words and phrases you teach it. It never sends your text online.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+
+            ResultCard(
+                accentColor = AppColors.Teal,
+                label = "Autocorrect Preview",
+                modeTag = preview.correctionLabel,
+                confidence = preview.confidence,
+                output = preview.correctedText.ifBlank { input.trim() },
+                onCopy = onTrain,
+                actionLabel = "Teach"
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StatChip(
+                    label = "Sessions",
+                    value = preview.learnedSessions.toString(),
+                    accentColor = AppColors.Teal,
+                    modifier = Modifier.fillMaxWidth(0.31f)
+                )
+                StatChip(
+                    label = "Words",
+                    value = preview.uniqueWords.toString(),
+                    accentColor = AppColors.Gold,
+                    modifier = Modifier.fillMaxWidth(0.31f)
+                )
+                StatChip(
+                    label = "Phrases",
+                    value = preview.uniquePhrases.toString(),
+                    accentColor = AppColors.Terracotta,
+                    modifier = Modifier.fillMaxWidth(0.31f)
+                )
+            }
+
+            SectionLabel("Next predictions")
+            if (preview.predictions.isEmpty()) {
+                Text(
+                    text = "Type a few phrases and tap Teach this phrase to build local predictions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextMuted
+                )
+            } else {
+                ChipRow(
+                    items = preview.predictions.map { word ->
+                        Suggestion(
+                            latin = word,
+                            amharic = AmharicTranslator.transliterate(word),
+                            kind = "prediction"
+                        )
+                    },
+                    accentColor = AppColors.Teal,
+                    onPick = { }
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onTrain,
+                    modifier = Modifier.fillMaxWidth(0.46f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Teal.copy(alpha = 0.20f),
+                        contentColor = AppColors.Teal
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Teach this phrase",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                TextButton(
+                    onClick = onReset,
+                    modifier = Modifier.fillMaxWidth(0.46f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Reset memory",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatChip(
+    label: String,
+    value: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = accentColor.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = accentColor,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextMuted
+            )
         }
     }
 }
@@ -657,7 +848,8 @@ private fun ResultCard(
     modeTag: String,
     confidence: String,
     output: String,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    actionLabel: String = "Copy"
 ) {
     val isEmpty = output.isBlank()
 
@@ -711,7 +903,7 @@ private fun ResultCard(
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
                     Text(
-                        text = "Copy",
+                        text = actionLabel,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )

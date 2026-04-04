@@ -335,6 +335,17 @@ object AmharicTranslator {
             .orEmpty()
     }
 
+    fun knownEnglishVocabulary(): Set<String> {
+        return buildSet {
+            addAll(phrasebook.keys)
+            addAll(wordHints.keys)
+        }
+    }
+
+    fun knownEnglishPhrases(): Set<String> {
+        return phrasebook.keys.toSet()
+    }
+
     private fun normalizePhrase(value: String): String {
         return value
             .trim()
