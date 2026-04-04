@@ -185,23 +185,17 @@ fun TranslatorApp() {
 
 @Composable
 private fun HeroCard() {
-    AppCard {
+    AppCard(
+        tag = "Offline-first prototype",
+        title = "Amharic-English Offline Translator",
+        description = "Translate common English phrases into Amharic and preview Latin-to-Amharic typing while staying fully local."
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
                 text = "Offline-first prototype",
                 color = MaterialTheme.colorScheme.tertiary,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "Amharic-English Offline Translator",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Translate common English phrases into Amharic and preview Latin-to-Amharic typing while staying fully local.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
