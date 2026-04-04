@@ -47,9 +47,16 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("libs")
+        }
+    }
 }
 
 dependencies {
+    implementation(files("libs/keyman-engine.aar"))
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.compose.foundation:foundation")

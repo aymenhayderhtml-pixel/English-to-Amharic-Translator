@@ -60,6 +60,8 @@ import dev.amharictranslator.data.SmartLearningEngine
 import dev.amharictranslator.data.SmartLearningPreview
 import dev.amharictranslator.data.Suggestion
 import dev.amharictranslator.data.TranslationResult
+import dev.amharictranslator.keyman.KeymanBridge
+import dev.amharictranslator.keyman.KeymanBridgeState
 import dev.amharictranslator.ui.theme.AmharicTranslatorTheme
 import dev.amharictranslator.ui.theme.AppColors
 
@@ -87,6 +89,7 @@ fun TranslatorApp() {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val learningEngine = remember(context) { SmartLearningEngine(context.applicationContext) }
+    val keymanBridgeState = remember(context) { KeymanBridge.state(context.applicationContext) }
 
     var englishInput by rememberSaveable { mutableStateOf("good morning") }
     var typingInput by rememberSaveable { mutableStateOf("he hu hi ha hee h ho") }
@@ -235,6 +238,31 @@ fun TranslatorApp() {
                     learningEngine.reset()
                     learningVersion += 1
                     Toast.makeText(context, "Learning reset", Toast.LENGTH_SHORT).show()
+                }
+            )
+
+            KeymanBridgeSection(
+                modifier = Modifier.fillMaxWidth(),
+                state = keymanBridgeState,
+                onCopyChecklist = {
+                    val checklist = buildString {
+                        appendLine("Keyman bridge plan")
+                        appendLine()
+                        appendLine("Keyboard pack:")
+                        appendLine("- ${keymanBridgeState.keyboardPack.displayName}")
+                        appendLine("- ${keymanBridgeState.keyboardPack.packageId}")
+                        appendLine()
+                        appendLine("Lexical model:")
+                        appendLine("- ${keymanBridgeState.lexicalModelPack.displayName}")
+                        appendLine("- ${keymanBridgeState.lexicalModelPack.packageId}")
+                        appendLine()
+                        appendLine("Checklist:")
+                        keymanBridgeState.setupChecklist.forEach { item ->
+                            appendLine("- $item")
+                        }
+                    }
+                    clipboard.setText(AnnotatedString(checklist))
+                    Toast.makeText(context, "Keyman plan copied", Toast.LENGTH_SHORT).show()
                 }
             )
 
@@ -678,6 +706,90 @@ private fun SmartLearningSection(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KeymanBridgeSection(
+    modifier: Modifier,
+    state: KeymanBridgeState,
+    onCopyChecklist: () -> Unit
+) {
+    SectionCard(
+        modifier = modifier,
+        accentColor = AppColors.Gold,
+        tag = "KEYMAN BRIDGE",
+        title = "Keyboard mission control",
+        subtitle = "In-app keyboard first, system keyboard second"
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.animateContentSize(
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+            )
+        ) {
+            Text(
+                text = "This is the control center for the strong AI keyboard. It keeps the translator separate from the typing engine so we can swap in Keyman cleanly.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+
+            ResultCard(
+                accentColor = AppColors.Gold,
+                label = "Bridge Status",
+                modeTag = if (state.bridgeReady) "Scaffold ready" else "Not ready",
+                confidence = "Ready for Keyman SDK wiring",
+                output = buildString {
+                    appendLine("In-app target: ${state.inAppTarget}")
+                    appendLine()
+                    appendLine("System target: ${state.systemTarget}")
+                    appendLine()
+                    appendLine("Keyboard pack: ${state.keyboardPack.displayName}")
+                    appendLine("Lexical model: ${state.lexicalModelPack.displayName}")
+                }.trim(),
+                onCopy = onCopyChecklist,
+                actionLabel = "Copy plan"
+            )
+
+            SectionLabel("Recommended packages")
+            ChipRow(
+                items = listOf(
+                    Suggestion(
+                        latin = state.keyboardPack.packageId,
+                        amharic = state.keyboardPack.displayName,
+                        kind = "keyboard"
+                    ),
+                    Suggestion(
+                        latin = state.lexicalModelPack.packageId,
+                        amharic = state.lexicalModelPack.displayName,
+                        kind = "model"
+                    )
+                ),
+                accentColor = AppColors.Gold,
+                onPick = { }
+            )
+
+            SectionLabel("Setup checklist")
+            state.setupChecklist.forEachIndexed { index, item ->
+                FeatureItem(
+                    number = (index + 1).toString().padStart(2, '0'),
+                    title = item,
+                    description = "Mission control step ${index + 1}",
+                    accentColor = if (index % 2 == 0) AppColors.Gold else AppColors.Teal
+                )
+            }
+
+            if (state.installedAssets.isNotEmpty()) {
+                SectionLabel("Detected assets")
+                ChipRow(
+                    items = state.installedAssets.map { asset ->
+                        Suggestion(asset, "found in assets/keyman", "asset")
+                    },
+                    accentColor = AppColors.Teal,
+                    onPick = { }
+                )
             }
         }
     }
