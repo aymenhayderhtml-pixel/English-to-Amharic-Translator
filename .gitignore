@@ -1,0 +1,12 @@
+# Android
+android/.gradle/
+android/local.properties
+android/**/build/
+android/*.iml
+android/.idea/
+
+# General IDE / OS clutter
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

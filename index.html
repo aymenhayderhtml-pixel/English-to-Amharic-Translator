@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#08131f" />
+  <meta name="description" content="Offline-first Amharic-English translator prototype with live typing suggestions." />
+  <title>Amharic Offline Translator</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="backdrop backdrop-a" aria-hidden="true"></div>
+  <div class="backdrop backdrop-b" aria-hidden="true"></div>
+
+  <main class="app-shell">
+    <section class="hero panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Offline-first prototype</span>
+        <h1>Amharic-English Offline Translator</h1>
+        <p>
+          Translate common English phrases into Amharic, preview Latin-to-Amharic typing, and keep
+          the whole experience local.
+        </p>
+      </div>
+
+      <div class="status-row" aria-label="app status">
+        <span class="status-pill" id="offlineStatus">Checking offline support</span>
+        <span class="status-pill status-pill-soft">Local data only</span>
+        <span class="status-pill status-pill-soft">No account needed</span>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <article class="panel translator-panel">
+        <header class="panel-header">
+          <div>
+            <span class="section-tag">Translator</span>
+            <h2>English to Amharic</h2>
+          </div>
+          <p>
+            Phrasebook first, transliteration fallback second. This keeps the MVP useful while the
+            full Android architecture is still being designed.
+          </p>
+        </header>
+
+        <label class="field">
+          <span>English input</span>
+          <textarea
+            id="translatorInput"
+            rows="6"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            placeholder="Type something like: good morning"
+          ></textarea>
+        </label>
+
+        <div class="action-row">
+          <button class="button" id="copyTranslatorOutput" type="button">Copy Amharic</button>
+          <button class="button button-ghost" id="clearTranslatorInput" type="button">Clear</button>
+        </div>
+
+        <div class="example-block">
+          <span class="example-label">Try examples</span>
+          <div class="chip-row" id="translatorExamples"></div>
+        </div>
+
+        <section class="result-card">
+          <div class="result-card-header">
+            <div>
+              <span class="section-tag">Output</span>
+              <h3>Amharic translation</h3>
+            </div>
+            <div class="result-metrics">
+              <span class="metric" id="translationMode">Waiting for input</span>
+              <span class="metric" id="translationConfidence">Prototype</span>
+            </div>
+          </div>
+
+          <p id="translatorOutput" class="translation-output muted">
+            Your Amharic output will appear here.
+          </p>
+        </section>
+      </article>
+
+      <article class="panel keyboard-panel">
+        <header class="panel-header">
+          <div>
+            <span class="section-tag">Keyboard lab</span>
+            <h2>Live Amharic typing preview</h2>
+          </div>
+          <p>
+            Type Latin sequences such as <strong>he</strong>, <strong>hu</strong>, or
+            <strong>good morning</strong> to see how the local keyboard map behaves.
+          </p>
+        </header>
+
+        <label class="field">
+          <span>Typing input</span>
+          <textarea
+            id="keyboardInput"
+            rows="6"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            placeholder="Try: he hu hi ha hee h ho"
+          ></textarea>
+        </label>
+
+        <div class="example-block">
+          <span class="example-label">Common syllables</span>
+          <div class="chip-row" id="keyboardExamples"></div>
+        </div>
+
+        <section class="result-card">
+          <div class="result-card-header">
+            <div>
+              <span class="section-tag">Preview</span>
+              <h3>Current Amharic output</h3>
+            </div>
+            <span class="metric" id="typingTokenLabel">No token yet</span>
+          </div>
+
+          <p id="typingOutput" class="typing-output muted">
+            Live transliteration preview will appear here.
+          </p>
+
+          <div class="suggestion-wrap">
+            <span class="example-label">Suggestions</span>
+            <div class="chip-row" id="typingSuggestions"></div>
+          </div>
+        </section>
+      </article>
+    </section>
+
+    <section class="panel info-panel">
+      <div>
+        <span class="section-tag">How this works</span>
+        <h2>Local-only MVP logic</h2>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <strong>Phrasebook</strong>
+          <p>Common phrases are translated from a local mapping first.</p>
+        </div>
+        <div class="info-item">
+          <strong>Fallback</strong>
+          <p>Unknown English text is transliterated with an offline rule set.</p>
+        </div>
+        <div class="info-item">
+          <strong>Next step</strong>
+          <p>The roadmap can later swap this local logic for Keyman-driven input and richer prediction.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <div class="noscript-banner">
+      This app needs JavaScript enabled to run the offline translator prototype.
+    </div>
+  </noscript>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

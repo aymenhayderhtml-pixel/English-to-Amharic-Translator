@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Amharic translator icon">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f2134"/>
+      <stop offset="100%" stop-color="#08111c"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0b35d"/>
+      <stop offset="100%" stop-color="#74d0c3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#g)"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#glow)" stroke-width="18"/>
+  <path d="M154 320c28-34 58-52 102-52s74 18 102 52" fill="none" stroke="#f4efe6" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="210" cy="208" r="16" fill="#f0b35d"/>
+  <circle cx="302" cy="208" r="16" fill="#74d0c3"/>
+  <text x="256" y="388" text-anchor="middle" font-family="Georgia, serif" font-size="72" fill="#f4efe6">አ</text>
+</svg>
