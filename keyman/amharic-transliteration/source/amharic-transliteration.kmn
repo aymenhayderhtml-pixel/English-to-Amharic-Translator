@@ -1,0 +1,180 @@
+c keyboard generated for Amharic Transliteration Keyboard
+
+store(&NAME) 'Amharic Transliteration Keyboard'
+store(&COPYRIGHT) '(c) 2026 Aymen Hayder'
+store(&VERSION) '10.0'
+store(&KEYBOARDVERSION) '1.0'
+store(&TARGETS) 'any'
+
+begin Unicode > use(main)
+
+group(main) using keys
+
+c
++ [K_H][K_E] > 'ሀ'
++ [K_H][K_U] > 'ሁ'
++ [K_H][K_I] > 'ሂ'
++ [K_H][K_A] > 'ሃ'
++ [K_H][K_O] > 'ሆ'
++ [K_H] > 'ህ'
++ [K_H][K_W][K_A] > 'ኋ'
++ [K_H][K_W][K_E] > 'ኈ'
++ [K_H][K_W][K_I] > 'ኊ'
++ [K_H][K_W][K_O] > 'ኌ'
+
+c
++ [K_S][K_E] > 'ሰ'
++ [K_S][K_U] > 'ሱ'
++ [K_S][K_I] > 'ሲ'
++ [K_S][K_A] > 'ሳ'
++ [K_S][K_O] > 'ሶ'
++ [K_S] > 'ስ'
+
+c
++ [K_M][K_E] > 'መ'
++ [K_M][K_U] > 'ሙ'
++ [K_M][K_I] > 'ሚ'
++ [K_M][K_A] > 'ማ'
++ [K_M][K_O] > 'ሞ'
++ [K_M] > 'ም'
+
+c
++ [K_N][K_E] > 'ነ'
++ [K_N][K_U] > 'ኑ'
++ [K_N][K_I] > 'ኒ'
++ [K_N][K_A] > 'ና'
++ [K_N][K_O] > 'ኖ'
++ [K_N] > 'ን'
+
+c
++ [K_L][K_E] > 'ለ'
++ [K_L][K_U] > 'ሉ'
++ [K_L][K_I] > 'ሊ'
++ [K_L][K_A] > 'ላ'
++ [K_L][K_O] > 'ሎ'
++ [K_L] > 'ል'
+
+c
++ [K_B][K_E] > 'በ'
++ [K_B][K_U] > 'ቡ'
++ [K_B][K_I] > 'ቢ'
++ [K_B][K_A] > 'ባ'
++ [K_B][K_O] > 'ቦ'
++ [K_B] > 'ብ'
+
+c
++ [K_F][K_E] > 'ፈ'
++ [K_F][K_U] > 'ፉ'
++ [K_F][K_I] > 'ፊ'
++ [K_F][K_A] > 'ፋ'
++ [K_F][K_O] > 'ፎ'
++ [K_F] > 'ፍ'
+
+c
++ [K_P][K_E] > 'ፐ'
++ [K_P][K_U] > 'ፑ'
++ [K_P][K_I] > 'ፒ'
++ [K_P][K_A] > 'ፓ'
++ [K_P][K_O] > 'ፖ'
++ [K_P] > 'ፕ'
+
+c
++ [K_V][K_E] > 'ቨ'
++ [K_V][K_U] > 'ቩ'
++ [K_V][K_I] > 'ቪ'
++ [K_V][K_A] > 'ቫ'
++ [K_V][K_O] > 'ቮ'
++ [K_V] > 'ቭ'
+
+c
++ [K_Y][K_E] > 'የ'
++ [K_Y][K_U] > 'ዩ'
++ [K_Y][K_I] > 'ዪ'
++ [K_Y][K_A] > 'ያ'
++ [K_Y][K_O] > 'ዮ'
++ [K_Y] > 'ይ'
+
+c
++ [K_Z][K_E] > 'ዘ'
++ [K_Z][K_U] > 'ዙ'
++ [K_Z][K_I] > 'ዚ'
++ [K_Z][K_A] > 'ዛ'
++ [K_Z][K_O] > 'ዞ'
++ [K_Z] > 'ዝ'
+
+c
++ [K_J][K_E] > 'ጀ'
++ [K_J][K_U] > 'ጁ'
++ [K_J][K_I] > 'ጂ'
++ [K_J][K_A] > 'ጃ'
++ [K_J][K_O] > 'ጆ'
++ [K_J] > 'ጅ'
+
+c
++ [K_Q][K_E] > 'ቀ'
++ [K_Q][K_U] > 'ቁ'
++ [K_Q][K_I] > 'ቂ'
++ [K_Q][K_A] > 'ቃ'
++ [K_Q][K_O] > 'ቆ'
++ [K_Q] > 'ቅ'
+
+c
++ [K_X][K_E] > 'ኸ'
++ [K_X][K_U] > 'ኹ'
++ [K_X][K_I] > 'ኺ'
++ [K_X][K_A] > 'ኻ'
++ [K_X][K_O] > 'ኾ'
++ [K_X] > 'ኽ'
+
+c
++ [K_R][K_E] > 'ረ'
++ [K_R][K_U] > 'ሩ'
++ [K_R][K_I] > 'ሪ'
++ [K_R][K_A] > 'ራ'
++ [K_R][K_O] > 'ሮ'
++ [K_R] > 'ር'
+
+c
++ [K_T][K_E] > 'ተ'
++ [K_T][K_U] > 'ቱ'
++ [K_T][K_I] > 'ቲ'
++ [K_T][K_A] > 'ታ'
++ [K_T][K_O] > 'ቶ'
++ [K_T] > 'ት'
+
+c
++ [K_D][K_E] > 'ደ'
++ [K_D][K_U] > 'ዱ'
++ [K_D][K_I] > 'ዲ'
++ [K_D][K_A] > 'ዳ'
++ [K_D][K_O] > 'ዶ'
++ [K_D] > 'ድ'
+
+c
++ [K_A][K_E] > 'አ'
++ [K_A][K_U] > 'ኡ'
++ [K_A][K_I] > 'ኢ'
++ [K_A][K_A] > 'ኣ'
++ [K_A][K_O] > 'ኦ'
++ [K_A] > 'እ'
+
+c
++ [K_O][K_E] > 'ኦ'
++ [K_U][K_E] > 'ኡ'
++ [K_I][K_E] > 'ኢ'
++ [K_E][K_E] > 'ኤ'
+
+c
++ [K_SPACE] > ' '
++ [K_PERIOD] > '.'
++ [K_COMMA] > ','
++ [K_1] > '1'
++ [K_2] > '2'
++ [K_3] > '3'
++ [K_4] > '4'
++ [K_5] > '5'
++ [K_6] > '6'
++ [K_7] > '7'
++ [K_8] > '8'
++ [K_9] > '9'
++ [K_0] > '0'

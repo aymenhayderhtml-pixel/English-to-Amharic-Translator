@@ -25,11 +25,23 @@ To wire Keyman into this app, add the official SDK package contents locally and 
    - `android/app/libs/keyman-engine.aar`
 4. Copy your compiled keyboard package `.kmp` into:
    - `android/app/src/main/assets/keyman/`
-5. Copy your lexical model package into the same folder.
-6. Add the SDK library to the Android Studio project using the sample project structure from the Keyman SDK archive.
-7. Register the keyboard package with `KMManager`.
-8. Register the lexical model with `KMManager`.
-9. Keep the current offline translator as a fallback until the keyboard flow is stable.
+5. If you have multiple `.kmp` files, keep them all in the same folder.
+6. The app now selects the best package automatically:
+   - prefers the known stable `amharic-transliteration.kmp` when present
+   - otherwise picks the best matching stable package by filename
+7. Copy your lexical model package into the same folder.
+8. Load the keyboard package on demand from the app's **Load Keyman package** button first.
+9. Tap **Reload keyboard** after swapping a `.kmp` file in assets.
+10. Keep the current offline translator as a fallback until the keyboard flow is stable.
+
+## Keyboard Source Package In This Repo
+
+The first keyboard source lives at:
+
+- `keyman/amharic-transliteration/source/amharic-transliteration.kps`
+- `keyman/amharic-transliteration/source/amharic-transliteration.kmn`
+
+Use Keyman Developer to compile that source into a `.kmp` package when you are ready to ship the keyboard asset.
 
 ## Current Repo Status
 

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package>
+  <System>
+    <KeymanDeveloperVersion>$KEYMANVERSION</KeymanDeveloperVersion>
+    <FileVersion>7.0</FileVersion>
+  </System>
+  <Options>
+    <ReadMeFile>readme.htm</ReadMeFile>
+    <LicenseFile>..\..\..\LICENSE</LicenseFile>
+    <WelcomeFile>welcome.htm</WelcomeFile>
+    <FollowKeyboardVersion/>
+  </Options>
+  <Info>
+    <Name URL="">Amharic Transliteration Keyboard</Name>
+    <Copyright URL="">(c) 2026 Aymen Hayder</Copyright>
+    <Author URL="">Aymen Hayder</Author>
+    <Description URL="">Amharic transliteration keyboard package for English-to-Amharic input.</Description>
+  </Info>
+  <Files>
+    <File>
+      <Name>..\build\amharic-transliteration.kmx</Name>
+    </File>
+    <File>
+      <Name>welcome.htm</Name>
+    </File>
+    <File>
+      <Name>readme.htm</Name>
+    </File>
+    <File>
+      <Name>..\..\..\LICENSE</Name>
+    </File>
+  </Files>
+  <Keyboards>
+    <Keyboard>
+      <ID>amharic-transliteration</ID>
+      <Languages>
+        <Language ID="am">Amharic</Language>
+      </Languages>
+    </Keyboard>
+  </Keyboards>
+</Package>

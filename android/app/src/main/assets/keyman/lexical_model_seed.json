@@ -1,0 +1,18 @@
+{
+  "name": "amharic-local-lexical-seed",
+  "version": "0.1.0",
+  "language": "am",
+  "description": "Local offline lexical model seed for Amharic predictions.",
+  "entries": [
+    { "text": "selam", "weight": 100 },
+    { "text": "thank you", "weight": 80 },
+    { "text": "good morning", "weight": 70 },
+    { "text": "coffee", "weight": 60 },
+    { "text": "water", "weight": 55 },
+    { "text": "please", "weight": 50 },
+    { "text": "help", "weight": 45 },
+    { "text": "friend", "weight": 40 },
+    { "text": "where is the market", "weight": 35 },
+    { "text": "i am happy", "weight": 30 }
+  ]
+}

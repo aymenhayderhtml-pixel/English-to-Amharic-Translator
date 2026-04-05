@@ -38,9 +38,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -56,14 +58,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.amharictranslator.data.AmharicTranslator
+import dev.amharictranslator.data.LexicalModelMeta
+import dev.amharictranslator.data.LocalLexicalModel
 import dev.amharictranslator.data.SmartLearningEngine
+import dev.amharictranslator.data.SmartLearningHistory
 import dev.amharictranslator.data.SmartLearningPreview
 import dev.amharictranslator.data.Suggestion
 import dev.amharictranslator.data.TranslationResult
 import dev.amharictranslator.keyman.KeymanBridge
 import dev.amharictranslator.keyman.KeymanBridgeState
+import dev.amharictranslator.keyman.KeymanInstallResult
+import dev.amharictranslator.keyman.KeymanKeyboardHost
+import dev.amharictranslator.keyman.KeymanPackageInstaller
 import dev.amharictranslator.ui.theme.AmharicTranslatorTheme
 import dev.amharictranslator.ui.theme.AppColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,16 +99,36 @@ fun TranslatorApp() {
     val scrollState = rememberScrollState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val learningEngine = remember(context) { SmartLearningEngine(context.applicationContext) }
-    val keymanBridgeState = remember(context) { KeymanBridge.state(context.applicationContext) }
+    val keymanBaseState = remember(context) { KeymanBridge.state(context.applicationContext) }
+    val lexicalModelMeta = remember(context) { LocalLexicalModel.loadMeta(context.applicationContext) }
 
     var englishInput by rememberSaveable { mutableStateOf("good morning") }
+    var englishInputSource by rememberSaveable { mutableStateOf("Manual typing") }
     var typingInput by rememberSaveable { mutableStateOf("he hu hi ha hee h ho") }
+    var keymanDraft by rememberSaveable { mutableStateOf("") }
     var learningVersion by remember { mutableStateOf(0) }
+    var keymanInstallResult by remember {
+        mutableStateOf(
+            KeymanInstallResult(
+                success = false,
+                message = "Tap Load Keyman package to check the keyboard installation."
+            )
+        )
+    }
+
+    val keymanBridgeState = keymanBaseState.copy(installResult = keymanInstallResult)
 
     val translationResult = remember(englishInput) { AmharicTranslator.translate(englishInput) }
     val typingPreview = remember(typingInput) { AmharicTranslator.transliterate(typingInput) }
     val typingSuggestions = remember(typingInput) { AmharicTranslator.suggestions(typingInput) }
+    val keymanLearningPreview = remember(keymanDraft, learningVersion) {
+        learningEngine.preview(keymanDraft)
+    }
+    val keymanHistory = remember(learningVersion) {
+        learningEngine.history()
+    }
     val smartLearningPreview = remember(englishInput, learningVersion) {
         learningEngine.preview(englishInput)
     }
@@ -139,19 +170,93 @@ fun TranslatorApp() {
         ) {
             HeroSection()
 
+            KeymanBridgeSection(
+                modifier = Modifier.fillMaxWidth(),
+                state = keymanBridgeState,
+                keyboardText = keymanDraft,
+                learningPreview = keymanLearningPreview,
+                learningHistory = keymanHistory,
+                lexicalModelMeta = lexicalModelMeta,
+                onLoadPackage = {
+                    coroutineScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            KeymanPackageInstaller.ensureInstalled(context.applicationContext)
+                        }
+                        keymanInstallResult = result
+                        Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onSendToTranslator = {
+                    if (keymanDraft.isNotBlank()) {
+                        englishInput = keymanDraft
+                        englishInputSource = "Keyman"
+                        Toast.makeText(context, "Sent to translator", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onKeyboardTextChanged = { text ->
+                    keymanDraft = text
+                    typingInput = text
+                },
+                onTeachKeyboardText = {
+                    if (keymanDraft.isNotBlank()) {
+                        learningEngine.learnPhrase(keymanDraft)
+                        learningVersion += 1
+                        Toast.makeText(context, "Keyboard text learned", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onCopyKeyboardText = {
+                    if (keymanDraft.isNotBlank()) {
+                        clipboard.setText(AnnotatedString(keymanDraft))
+                        Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onResetLearning = {
+                    learningEngine.reset()
+                    learningVersion += 1
+                    Toast.makeText(context, "Learning reset", Toast.LENGTH_SHORT).show()
+                },
+                onCopyChecklist = {
+                    val checklist = buildString {
+                        appendLine("Keyman bridge plan")
+                        appendLine()
+                        appendLine("Keyboard pack:")
+                        appendLine("- ${keymanBridgeState.keyboardPack.displayName}")
+                        appendLine("- ${keymanBridgeState.keyboardPack.packageId}")
+                        appendLine("- Active asset: ${keymanBridgeState.activeKeyboardPackage.ifBlank { "none" }}")
+                        appendLine("- Available assets: ${if (keymanBridgeState.availableKeyboardPackages.isEmpty()) "none" else keymanBridgeState.availableKeyboardPackages.joinToString(", ")}")
+                        appendLine()
+                        appendLine("Lexical model:")
+                        appendLine("- ${keymanBridgeState.lexicalModelPack.displayName}")
+                        appendLine("- ${keymanBridgeState.lexicalModelPack.packageId}")
+                        appendLine()
+                        appendLine("Checklist:")
+                        keymanBridgeState.setupChecklist.forEach { item ->
+                            appendLine("- $item")
+                        }
+                    }
+                    clipboard.setText(AnnotatedString(checklist))
+                    Toast.makeText(context, "Keyman plan copied", Toast.LENGTH_SHORT).show()
+                }
+            )
+
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val wide = maxWidth >= 900.dp
 
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    TranslationSection(
+                        TranslationSection(
                             modifier = Modifier.fillMaxWidth(0.49f),
                             input = englishInput,
-                            onInputChange = { englishInput = it },
-                            result = translationResult,
+                            inputSourceLabel = englishInputSource,
+                            onInputChange = {
+                                englishInput = it
+                                englishInputSource = "Manual typing"
+                            },
+                            translationResult = translationResult,
                             examples = translatorExamples,
                             onExamplePick = {
                                 englishInput = it
+                                englishInputSource = "Manual typing"
                                 learningEngine.learnPhrase(it)
                                 learningVersion += 1
                             },
@@ -160,22 +265,6 @@ fun TranslatorApp() {
                                     clipboard.setText(AnnotatedString(translationResult.output))
                                     learningEngine.learnPhrase(englishInput)
                                     learningVersion += 1
-                                    Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        )
-                        KeyboardSection(
-                            modifier = Modifier.fillMaxWidth(0.49f),
-                            input = typingInput,
-                            onInputChange = { typingInput = it },
-                            output = typingPreview,
-                            token = AmharicTranslator.currentToken(typingInput),
-                            suggestions = typingSuggestions,
-                            examples = keyboardExamples,
-                            onExamplePick = { typingInput = it },
-                            onCopy = {
-                                if (typingPreview.isNotBlank()) {
-                                    clipboard.setText(AnnotatedString(typingPreview))
                                     Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -186,11 +275,16 @@ fun TranslatorApp() {
                         TranslationSection(
                             modifier = Modifier.fillMaxWidth(),
                             input = englishInput,
-                            onInputChange = { englishInput = it },
-                            result = translationResult,
+                            inputSourceLabel = englishInputSource,
+                            onInputChange = {
+                                englishInput = it
+                                englishInputSource = "Manual typing"
+                            },
+                            translationResult = translationResult,
                             examples = translatorExamples,
                             onExamplePick = {
                                 englishInput = it
+                                englishInputSource = "Manual typing"
                                 learningEngine.learnPhrase(it)
                                 learningVersion += 1
                             },
@@ -199,22 +293,6 @@ fun TranslatorApp() {
                                     clipboard.setText(AnnotatedString(translationResult.output))
                                     learningEngine.learnPhrase(englishInput)
                                     learningVersion += 1
-                                    Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        )
-                        KeyboardSection(
-                            modifier = Modifier.fillMaxWidth(),
-                            input = typingInput,
-                            onInputChange = { typingInput = it },
-                            output = typingPreview,
-                            token = AmharicTranslator.currentToken(typingInput),
-                            suggestions = typingSuggestions,
-                            examples = keyboardExamples,
-                            onExamplePick = { typingInput = it },
-                            onCopy = {
-                                if (typingPreview.isNotBlank()) {
-                                    clipboard.setText(AnnotatedString(typingPreview))
                                     Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -241,28 +319,20 @@ fun TranslatorApp() {
                 }
             )
 
-            KeymanBridgeSection(
+            KeyboardSection(
                 modifier = Modifier.fillMaxWidth(),
-                state = keymanBridgeState,
-                onCopyChecklist = {
-                    val checklist = buildString {
-                        appendLine("Keyman bridge plan")
-                        appendLine()
-                        appendLine("Keyboard pack:")
-                        appendLine("- ${keymanBridgeState.keyboardPack.displayName}")
-                        appendLine("- ${keymanBridgeState.keyboardPack.packageId}")
-                        appendLine()
-                        appendLine("Lexical model:")
-                        appendLine("- ${keymanBridgeState.lexicalModelPack.displayName}")
-                        appendLine("- ${keymanBridgeState.lexicalModelPack.packageId}")
-                        appendLine()
-                        appendLine("Checklist:")
-                        keymanBridgeState.setupChecklist.forEach { item ->
-                            appendLine("- $item")
-                        }
+                input = typingInput,
+                onInputChange = { typingInput = it },
+                output = typingPreview,
+                token = AmharicTranslator.currentToken(typingInput),
+                suggestions = typingSuggestions,
+                examples = keyboardExamples,
+                onExamplePick = { typingInput = it },
+                onCopy = {
+                    if (typingPreview.isNotBlank()) {
+                        clipboard.setText(AnnotatedString(typingPreview))
+                        Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                     }
-                    clipboard.setText(AnnotatedString(checklist))
-                    Toast.makeText(context, "Keyman plan copied", Toast.LENGTH_SHORT).show()
                 }
             )
 
@@ -450,8 +520,9 @@ private fun SectionCard(
 private fun TranslationSection(
     modifier: Modifier,
     input: String,
+    inputSourceLabel: String,
     onInputChange: (String) -> Unit,
-    result: TranslationResult,
+    translationResult: TranslationResult,
     examples: List<String>,
     onExamplePick: (String) -> Unit,
     onCopy: () -> Unit
@@ -489,9 +560,9 @@ private fun TranslationSection(
             ResultCard(
                 accentColor = AppColors.Gold,
                 label = "Amharic Translation",
-                modeTag = result.mode,
-                confidence = result.confidence,
-                output = result.output,
+                modeTag = "${translationResult.mode} • $inputSourceLabel",
+                confidence = translationResult.confidence,
+                output = translationResult.output,
                 onCopy = onCopy
             )
         }
@@ -587,7 +658,7 @@ private fun FeaturesSection() {
             FeatureItem("01", "Phrasebook Lookup", "Common phrases matched from a curated local dictionary.", AppColors.Gold)
             FeatureItem("02", "Transliteration Fallback", "Unknown text is mapped through offline syllable rules.", AppColors.Teal)
             FeatureItem("03", "Smart Autocorrect", "The app learns approved phrases locally and suggests better next words.", AppColors.Terracotta)
-            FeatureItem("04", "Future: Keyman Integration", "Full keyboard support with richer prediction coming soon.", AppColors.Gold)
+            FeatureItem("04", "Keyman Input Bridge", "The in-app keyboard now drives the primary typing surface.", AppColors.Gold)
         }
     }
 }
@@ -715,8 +786,30 @@ private fun SmartLearningSection(
 private fun KeymanBridgeSection(
     modifier: Modifier,
     state: KeymanBridgeState,
+    keyboardText: String,
+    learningPreview: SmartLearningPreview,
+    learningHistory: SmartLearningHistory,
+    lexicalModelMeta: LexicalModelMeta?,
+    onLoadPackage: () -> Unit,
+    onSendToTranslator: () -> Unit,
+    onKeyboardTextChanged: (String) -> Unit,
+    onTeachKeyboardText: () -> Unit,
+    onCopyKeyboardText: () -> Unit,
+    onResetLearning: () -> Unit,
     onCopyChecklist: () -> Unit
 ) {
+    var keyboardError by remember { mutableStateOf<String?>(null) }
+    var showAssets by remember { mutableStateOf(true) }
+    val transliterationPreview = remember(keyboardText) {
+        AmharicTranslator.transliterate(keyboardText)
+    }
+
+    LaunchedEffect(state.installResult.success) {
+        if (state.installResult.success) {
+            keyboardError = null
+        }
+    }
+
     SectionCard(
         modifier = modifier,
         accentColor = AppColors.Gold,
@@ -739,8 +832,8 @@ private fun KeymanBridgeSection(
             ResultCard(
                 accentColor = AppColors.Gold,
                 label = "Bridge Status",
-                modeTag = if (state.bridgeReady) "Scaffold ready" else "Not ready",
-                confidence = "Ready for Keyman SDK wiring",
+                modeTag = if (state.installResult.success) "Package installed" else "Install pending",
+                confidence = if (state.installResult.success) "Keyboard count: ${state.installResult.installedKeyboardCount}" else state.installResult.message,
                 output = buildString {
                     appendLine("In-app target: ${state.inAppTarget}")
                     appendLine()
@@ -748,10 +841,218 @@ private fun KeymanBridgeSection(
                     appendLine()
                     appendLine("Keyboard pack: ${state.keyboardPack.displayName}")
                     appendLine("Lexical model: ${state.lexicalModelPack.displayName}")
+                    appendLine()
+                    appendLine("Current keyboard: ${state.installResult.currentKeyboardId.ifBlank { "none" }}")
+                    appendLine("Active package: ${state.installResult.activePackageAsset.ifBlank { state.activeKeyboardPackage.ifBlank { "none" } }}")
                 }.trim(),
                 onCopy = onCopyChecklist,
                 actionLabel = "Copy plan"
             )
+
+            SectionLabel("Package updates")
+            ResultCard(
+                accentColor = AppColors.Teal,
+                label = "Offline package swap",
+                modeTag = if (state.availableKeyboardPackages.isEmpty()) "No packages found" else "${state.availableKeyboardPackages.size} package(s)",
+                confidence = if (state.availableKeyboardPackages.isEmpty()) {
+                    "Drop new .kmp files into assets/keyman and tap Reload keyboard."
+                } else {
+                    "Active: ${state.installResult.activePackageAsset.ifBlank { state.activeKeyboardPackage.ifBlank { "none" } }}"
+                },
+                output = buildString {
+                    appendLine("Available packages:")
+                    if (state.availableKeyboardPackages.isEmpty()) {
+                        appendLine("- none detected")
+                    } else {
+                        state.availableKeyboardPackages.forEach { appendLine("- $it") }
+                    }
+                    appendLine()
+                    appendLine("Swap path:")
+                    appendLine("- copy or replace the .kmp file in assets/keyman")
+                    appendLine("- rebuild or reinstall the app")
+                    appendLine("- tap Reload keyboard")
+                }.trim(),
+                onCopy = onCopyChecklist,
+                actionLabel = "Copy plan"
+            )
+
+            SectionLabel("Keyboard settings")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onLoadPackage,
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Gold.copy(alpha = 0.18f),
+                        contentColor = AppColors.Gold
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Load package",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                TextButton(
+                    onClick = onLoadPackage,
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Reload keyboard",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TextButton(
+                    onClick = onCopyChecklist,
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Copy plan",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                TextButton(
+                    onClick = { showAssets = !showAssets },
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = if (showAssets) "Hide assets" else "View assets",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            if (lexicalModelMeta != null) {
+                ResultCard(
+                    accentColor = AppColors.Teal,
+                    label = "Lexical model",
+                    modeTag = lexicalModelMeta.version,
+                    confidence = lexicalModelMeta.description,
+                    output = buildString {
+                        appendLine("Name: ${lexicalModelMeta.name}")
+                        appendLine("Language: ${lexicalModelMeta.language}")
+                    }.trim(),
+                    onCopy = onCopyChecklist,
+                    actionLabel = "Copy plan"
+                )
+            }
+
+            SectionLabel("Send to translator")
+            ResultCard(
+                accentColor = AppColors.Gold,
+                label = "Active draft",
+                modeTag = if (keyboardText.isBlank()) "Waiting for input" else "Keyman ready",
+                confidence = if (keyboardText.isBlank()) {
+                    "Type in the in-app Keyman field and send it to the translator."
+                } else {
+                    "Transliterated preview available"
+                },
+                output = transliterationPreview.ifBlank { "No keyboard draft yet." },
+                onCopy = onCopyKeyboardText,
+                actionLabel = "Copy draft"
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onSendToTranslator,
+                    enabled = keyboardText.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(0.52f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Gold.copy(alpha = 0.18f),
+                        contentColor = AppColors.Gold,
+                        disabledContainerColor = AppColors.Gold.copy(alpha = 0.08f),
+                        disabledContentColor = AppColors.TextMuted
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Send to translator",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                TextButton(
+                    onClick = onCopyKeyboardText,
+                    enabled = keyboardText.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(0.42f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Copy text",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            SectionLabel("Local memory")
+            ResultCard(
+                accentColor = AppColors.Teal,
+                label = "Memory snapshot",
+                modeTag = "${learningPreview.learnedSessions} sessions",
+                confidence = "${learningPreview.uniquePhrases} phrases • ${learningPreview.uniqueWords} words",
+                output = buildString {
+                    appendLine("Recent phrases:")
+                    val phraseLines = learningHistory.recentPhrases.take(5)
+                    if (phraseLines.isEmpty()) {
+                        appendLine("- none yet")
+                    } else {
+                        phraseLines.forEach { appendLine("- $it") }
+                    }
+                    appendLine()
+                    appendLine("Recent words:")
+                    val wordLines = learningHistory.recentWords.take(5)
+                    if (wordLines.isEmpty()) {
+                        appendLine("- none yet")
+                    } else {
+                        wordLines.forEach { appendLine("- $it") }
+                    }
+                }.trim(),
+                onCopy = onResetLearning,
+                actionLabel = "Reset memory"
+            )
+
+            SectionLabel("Next suggestions")
+            val suggestionItems = buildList {
+                addAll(learningPreview.nextWordSuggestions.map { Suggestion(it, AmharicTranslator.transliterate(it), "next-word") })
+                addAll(learningPreview.nextPhraseSuggestions.map { Suggestion(it, AmharicTranslator.transliterate(it), "next-phrase") })
+            }
+            if (suggestionItems.isEmpty()) {
+                Text(
+                    text = "Type or teach a few phrases to build next-word and next-phrase suggestions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextMuted
+                )
+            } else {
+                ChipRow(
+                    items = suggestionItems,
+                    accentColor = AppColors.Teal,
+                    onPick = { }
+                )
+            }
 
             SectionLabel("Recommended packages")
             ChipRow(
@@ -781,7 +1082,7 @@ private fun KeymanBridgeSection(
                 )
             }
 
-            if (state.installedAssets.isNotEmpty()) {
+            if (showAssets && state.installedAssets.isNotEmpty()) {
                 SectionLabel("Detected assets")
                 ChipRow(
                     items = state.installedAssets.map { asset ->
@@ -791,6 +1092,94 @@ private fun KeymanBridgeSection(
                     onPick = { }
                 )
             }
+
+            SectionLabel("In-app keyboard input")
+            if (!state.installResult.success) {
+                Text(
+                    text = "Load the Keyman package above to activate the keyboard input.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextMuted
+                )
+            } else {
+                KeymanKeyboardHost(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AppColors.DeepNavy.copy(alpha = 0.4f)),
+                    showKeyboard = true,
+                    onTextChanged = onKeyboardTextChanged,
+                    onError = { keyboardError = it }
+                )
+
+                if (!keyboardError.isNullOrBlank()) {
+                    Text(
+                        text = keyboardError.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextMuted
+                    )
+                }
+
+                SectionLabel("Current keyboard text")
+                ResultCard(
+                    accentColor = AppColors.Teal,
+                    label = "Live text",
+                    modeTag = if (keyboardText.isBlank()) "Waiting for input" else "Ready to teach",
+                    confidence = if (keyboardText.isBlank()) {
+                        "Type in the field above and the text will appear here."
+                    } else {
+                        "Length: ${keyboardText.length}"
+                    },
+                    output = keyboardText.ifBlank { "No keyboard text yet." },
+                    onCopy = onCopyKeyboardText,
+                    actionLabel = "Copy text"
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = onTeachKeyboardText,
+                        enabled = keyboardText.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(0.52f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppColors.Teal.copy(alpha = 0.18f),
+                            contentColor = AppColors.Teal,
+                            disabledContainerColor = AppColors.Teal.copy(alpha = 0.08f),
+                            disabledContentColor = AppColors.TextMuted
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = "Teach text",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    TextButton(
+                        onClick = onCopyKeyboardText,
+                        enabled = keyboardText.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(0.42f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = "Copy text",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            SectionLabel("System keyboard")
+            Text(
+                text = "The IME path stays deferred until the in-app keyboard is stable end-to-end. The current build keeps this isolated on purpose.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextMuted
+            )
         }
     }
 }

@@ -1,6 +1,7 @@
 package dev.amharictranslator.data
 
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.max
 
@@ -9,6 +10,10 @@ data class SmartLearningPreview(
     val correctionLabel: String,
     val confidence: String,
     val predictions: List<String>,
+    val nextWordSuggestions: List<String>,
+    val nextPhraseSuggestions: List<String>,
+    val recentPhrases: List<String>,
+    val recentWords: List<String>,
     val learnedSessions: Int,
     val uniqueWords: Int,
     val uniquePhrases: Int
@@ -21,12 +26,20 @@ data class SmartLearningStats(
     val uniqueBigrams: Int
 )
 
+data class SmartLearningHistory(
+    val recentPhrases: List<String>,
+    val recentWords: List<String>
+)
+
 class SmartLearningEngine(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val wordCounts = mutableMapOf<String, Int>()
     private val phraseCounts = mutableMapOf<String, Int>()
     private val bigramCounts = mutableMapOf<String, Int>()
+    private val recentPhrases = mutableListOf<String>()
+    private val recentWords = mutableListOf<String>()
+    private val lexicalEntries = LocalLexicalModel.loadEntries(context)
 
     private var learnedSessions: Int = 0
 
@@ -44,6 +57,10 @@ class SmartLearningEngine(context: Context) {
                 correctionLabel = "Waiting for input",
                 confidence = "Local learning only",
                 predictions = topPhrases(4),
+                nextWordSuggestions = emptyList(),
+                nextPhraseSuggestions = topPhrases(4),
+                recentPhrases = recentPhrases.take(MAX_RECENT),
+                recentWords = recentWords.take(MAX_RECENT),
                 learnedSessions = stats.learnedSessions,
                 uniqueWords = stats.uniqueWords,
                 uniquePhrases = stats.uniquePhrases
@@ -73,12 +90,18 @@ class SmartLearningEngine(context: Context) {
         }
 
         val predictions = buildPredictions(normalized, correctedText)
+        val nextWordSuggestions = nextWordSuggestions(normalized)
+        val nextPhraseSuggestions = nextPhraseSuggestions(normalized)
 
         return SmartLearningPreview(
             correctedText = correctedText,
             correctionLabel = correctionLabel,
             confidence = confidence,
             predictions = predictions,
+            nextWordSuggestions = nextWordSuggestions,
+            nextPhraseSuggestions = nextPhraseSuggestions,
+            recentPhrases = recentPhrases.take(MAX_RECENT),
+            recentWords = recentWords.take(MAX_RECENT),
             learnedSessions = stats.learnedSessions,
             uniqueWords = stats.uniqueWords,
             uniquePhrases = stats.uniquePhrases
@@ -94,9 +117,11 @@ class SmartLearningEngine(context: Context) {
 
         learnedSessions += 1
         phraseCounts[normalized] = (phraseCounts[normalized] ?: 0) + 1
+        rememberRecentPhrase(normalized)
 
         tokens.forEach { token ->
             wordCounts[token] = (wordCounts[token] ?: 0) + 1
+            rememberRecentWord(token)
         }
 
         tokens.zipWithNext().forEach { (left, right) ->
@@ -112,6 +137,8 @@ class SmartLearningEngine(context: Context) {
         wordCounts.clear()
         phraseCounts.clear()
         bigramCounts.clear()
+        recentPhrases.clear()
+        recentWords.clear()
         saveState()
     }
 
@@ -121,6 +148,13 @@ class SmartLearningEngine(context: Context) {
             uniqueWords = wordCounts.size,
             uniquePhrases = phraseCounts.size,
             uniqueBigrams = bigramCounts.size
+        )
+    }
+
+    fun history(limit: Int = MAX_RECENT): SmartLearningHistory {
+        return SmartLearningHistory(
+            recentPhrases = recentPhrases.take(limit),
+            recentWords = recentWords.take(limit)
         )
     }
 
@@ -162,6 +196,18 @@ class SmartLearningEngine(context: Context) {
             return bigramSuggestions
         }
 
+        val lexicalSuggestions = lexicalEntries
+            .asSequence()
+            .filter { prefix.isBlank() || it.text.startsWith(prefix) }
+            .sortedByDescending { it.weight }
+            .map { it.text }
+            .take(4)
+            .toList()
+
+        if (lexicalSuggestions.isNotEmpty()) {
+            return lexicalSuggestions
+        }
+
         val learningPool = buildSet {
             addAll(AmharicTranslator.knownEnglishVocabulary())
             addAll(wordCounts.keys)
@@ -176,6 +222,42 @@ class SmartLearningEngine(context: Context) {
                     .thenBy { it.length }
             )
             .take(4)
+            .toList()
+    }
+
+    private fun nextWordSuggestions(normalizedInput: String): List<String> {
+        val tokens = normalizedInput.split(" ").filter { it.isNotBlank() }
+        val previousWord = tokens.lastOrNull().orEmpty()
+        if (previousWord.isBlank()) return emptyList()
+
+        return bigramCounts.entries
+            .asSequence()
+            .filter { (key, _) -> key.startsWith("$previousWord|") }
+            .map { (key, count) ->
+                key.substringAfter('|') to count
+            }
+            .sortedWith(
+                compareByDescending<Pair<String, Int>> { it.second }
+                    .thenBy { it.first.length }
+            )
+            .map { it.first }
+            .take(5)
+            .toList()
+    }
+
+    private fun nextPhraseSuggestions(normalizedInput: String): List<String> {
+        if (normalizedInput.isBlank()) {
+            return topPhrases(5)
+        }
+
+        return phraseCounts.keys
+            .asSequence()
+            .filter { it.startsWith(normalizedInput) && it != normalizedInput }
+            .sortedWith(
+                compareByDescending<String> { phraseCounts[it] ?: 0 }
+                    .thenBy { it.length }
+            )
+            .take(5)
             .toList()
     }
 
@@ -324,6 +406,10 @@ class SmartLearningEngine(context: Context) {
         wordCounts.putAll(readMap(KEY_WORD_COUNTS))
         phraseCounts.putAll(readMap(KEY_PHRASE_COUNTS))
         bigramCounts.putAll(readMap(KEY_BIGRAM_COUNTS))
+        recentPhrases.clear()
+        recentPhrases.addAll(readList(KEY_RECENT_PHRASES))
+        recentWords.clear()
+        recentWords.addAll(readList(KEY_RECENT_WORDS))
     }
 
     private fun saveState() {
@@ -332,6 +418,8 @@ class SmartLearningEngine(context: Context) {
             .putString(KEY_WORD_COUNTS, writeMap(wordCounts))
             .putString(KEY_PHRASE_COUNTS, writeMap(phraseCounts))
             .putString(KEY_BIGRAM_COUNTS, writeMap(bigramCounts))
+            .putString(KEY_RECENT_PHRASES, writeList(recentPhrases))
+            .putString(KEY_RECENT_WORDS, writeList(recentWords))
             .apply()
     }
 
@@ -351,6 +439,48 @@ class SmartLearningEngine(context: Context) {
         }
     }
 
+    private fun readList(key: String): MutableList<String> {
+        val raw = prefs.getString(key, null).orEmpty()
+        if (raw.isBlank()) return mutableListOf()
+
+        return try {
+            val json = JSONArray(raw)
+            val list = mutableListOf<String>()
+            for (index in 0 until json.length()) {
+                list.add(json.optString(index, ""))
+            }
+            list.filter { it.isNotBlank() }.toMutableList()
+        } catch (_: Exception) {
+            mutableListOf()
+        }
+    }
+
+    private fun writeList(values: List<String>): String {
+        val json = JSONArray()
+        values.forEach { value ->
+            json.put(value)
+        }
+        return json.toString()
+    }
+
+    private fun rememberRecentPhrase(value: String) {
+        rememberRecent(value, recentPhrases)
+    }
+
+    private fun rememberRecentWord(value: String) {
+        rememberRecent(value, recentWords)
+    }
+
+    private fun rememberRecent(value: String, target: MutableList<String>) {
+        val normalized = value.trim()
+        if (normalized.isBlank()) return
+        target.remove(normalized)
+        target.add(0, normalized)
+        if (target.size > MAX_RECENT) {
+            target.subList(MAX_RECENT, target.size).clear()
+        }
+    }
+
     private fun writeMap(values: Map<String, Int>): String {
         val json = JSONObject()
         values.forEach { (key, value) ->
@@ -365,5 +495,8 @@ class SmartLearningEngine(context: Context) {
         private const val KEY_WORD_COUNTS = "word_counts"
         private const val KEY_PHRASE_COUNTS = "phrase_counts"
         private const val KEY_BIGRAM_COUNTS = "bigram_counts"
+        private const val KEY_RECENT_PHRASES = "recent_phrases"
+        private const val KEY_RECENT_WORDS = "recent_words"
+        private const val MAX_RECENT = 8
     }
 }
