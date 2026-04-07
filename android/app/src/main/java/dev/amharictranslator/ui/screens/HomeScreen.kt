@@ -1,6 +1,8 @@
 package dev.amharictranslator.ui.screens
 
 import android.content.Intent
+import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -280,6 +282,33 @@ fun HomeScreen(
                         ) {
                             Text("Reset local memory")
                         }
+                        TextButton(
+                            onClick = {
+                                context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                            },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Open keyboard settings")
+                        }
+                        TextButton(
+                            onClick = {
+                                val imm = context.getSystemService(InputMethodManager::class.java)
+                                imm?.showInputMethodPicker()
+                            },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Show keyboard picker")
+                        }
+                        Text(
+                            text = "Enable the Amharic Keyboard in Android settings, then switch to it from the system keyboard picker.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary
+                        )
+                        Text(
+                            text = "If the keyboard is already enabled, use the picker button to switch to it inside any app.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary
+                        )
                     }
                 }
             }

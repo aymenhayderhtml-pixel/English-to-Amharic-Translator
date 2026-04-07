@@ -10,6 +10,19 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AmharicTranslator"
         tools:replace="android:theme">
+        <service
+            android:name=".ime.AmharicImeService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
