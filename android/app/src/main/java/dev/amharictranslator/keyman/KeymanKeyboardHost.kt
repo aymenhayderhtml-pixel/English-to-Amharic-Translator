@@ -21,6 +21,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun KeymanKeyboardHost(
     modifier: Modifier = Modifier,
     showKeyboard: Boolean,
+    preferredKeyboardId: String = "",
     onTextChanged: (String) -> Unit = {},
     onError: (String) -> Unit = {}
 ) {
@@ -47,7 +48,7 @@ fun KeymanKeyboardHost(
     AndroidView(
         modifier = modifier,
         factory = { viewContext ->
-            tryCreateKeyboardInput(viewContext, reportError, onTextChanged)
+            tryCreateKeyboardInput(viewContext, preferredKeyboardId, reportError, onTextChanged)
         },
         update = { view ->
             view.requestFocus()
@@ -57,10 +58,14 @@ fun KeymanKeyboardHost(
 
 private fun tryCreateKeyboardInput(
     context: Context,
+    preferredKeyboardId: String,
     onError: (String) -> Unit,
     onTextChanged: (String) -> Unit
 ): View {
     return try {
+        val effectivePreferredKeyboardId = preferredKeyboardId.ifBlank {
+            KeymanPackageInstaller.activeKeyboardId(context)
+        }
         val managerClass = Class.forName("com.keyman.engine.KMManager")
         val textViewClass = Class.forName("com.keyman.engine.KMTextView")
         val keyboardTypeClass = Class.forName("com.keyman.engine.KMManager\$KeyboardType")
@@ -81,8 +86,8 @@ private fun tryCreateKeyboardInput(
             it.name == "getKeyboardsList" && it.parameterTypes.size == 1
         } ?: throw IllegalStateException("Keyman keyboard list unavailable.")
 
-        val installedKeyboards = (getKeyboardsMethod.invoke(null, context) as? List<*>) ?: emptyList<Any>()
-        val keyboardInfo = installedKeyboards.firstOrNull()
+        val installedKeyboards = (getKeyboardsMethod.invoke(null, context) as? List<*>) ?: emptyList<Any?>()
+        val keyboardInfo = selectKeyboard(installedKeyboards, effectivePreferredKeyboardId)
             ?: throw IllegalStateException("No Keyman keyboard package is installed yet.")
 
         val setDefaultKeyboard = managerClass.methods.firstOrNull {
@@ -123,4 +128,23 @@ private fun tryCreateKeyboardInput(
             )
         }
     }
+}
+
+private fun selectKeyboard(
+    keyboards: List<Any?>,
+    preferredKeyboardId: String
+): Any? {
+    if (keyboards.isEmpty()) return null
+
+    if (!preferredKeyboardId.isBlank()) {
+        keyboards.firstOrNull { keyboard ->
+            keyboard?.javaClass?.methods?.firstOrNull { it.name == "getKeyboardID" }
+                ?.invoke(keyboard)
+                ?.toString()
+                .orEmpty()
+                .equals(preferredKeyboardId, ignoreCase = true)
+        }?.let { return it }
+    }
+
+    return keyboards.firstOrNull()
 }

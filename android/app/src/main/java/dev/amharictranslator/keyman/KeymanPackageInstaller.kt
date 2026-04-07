@@ -124,6 +124,7 @@ object KeymanPackageInstaller {
                 .orEmpty()
 
             writeActiveAsset(context, chosenAsset)
+            writeActiveKeyboardId(context, keyboardId)
 
             KeymanInstallResult(
                 success = installedCount > 0 || finalKeyboards.isNotEmpty(),
@@ -150,6 +151,10 @@ object KeymanPackageInstaller {
         return saved.ifBlank {
             selectPreferredKmpAsset(listKmpAssets(context)).orEmpty()
         }
+    }
+
+    fun activeKeyboardId(context: Context): String {
+        return prefs(context).getString("active_keyboard_id", "").orEmpty()
     }
 
     private fun listKmpAssets(context: Context): List<String> {
@@ -220,6 +225,14 @@ object KeymanPackageInstaller {
         runCatching {
             prefs(context).edit {
                 putString("active_kmp_asset", assetName)
+            }
+        }
+    }
+
+    private fun writeActiveKeyboardId(context: Context, keyboardId: String) {
+        runCatching {
+            prefs(context).edit {
+                putString("active_keyboard_id", keyboardId)
             }
         }
     }
