@@ -16,22 +16,25 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
 
     private var keyboardView: AmharicKeyboardView? = null
     private var transliterationEnabled: Boolean = true
+    private var amharicModeRequested: Boolean = true
 
     override fun onCreateInputView(): View {
         return AmharicKeyboardView(this).also { view ->
             view.listener = this
             keyboardView = view
-            view.setStatus("Amharic Keyboard ready")
+            view.setStatus("")
             view.setPreview("")
+            view.setTypingMode(amharicEnabled = amharicModeRequested, transliterationEnabled = transliterationEnabled)
         }
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
-        transliterationEnabled = !isSecureInputType(attribute)
+        transliterationEnabled = amharicModeRequested && !isSecureInputType(attribute)
         controller.reset()
         keyboardView?.setPreview("")
         keyboardView?.setStatus(buildStatusLabel(attribute))
+        keyboardView?.setTypingMode(amharicEnabled = amharicModeRequested, transliterationEnabled = transliterationEnabled)
     }
 
     override fun onFinishInput() {
@@ -91,6 +94,16 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
         imm.showInputMethodPicker()
     }
 
+    override fun onToggleTypingMode() {
+        amharicModeRequested = !amharicModeRequested
+        transliterationEnabled = amharicModeRequested && !isSecureInputType(currentInputEditorInfo)
+        controller.reset()
+        currentInputConnection?.finishComposingText()
+        keyboardView?.setPreview("")
+        keyboardView?.setTypingMode(amharicEnabled = amharicModeRequested, transliterationEnabled = transliterationEnabled)
+        keyboardView?.setStatus("")
+    }
+
     private fun handleCharacter(char: Char) {
         val inputConnection = currentInputConnection ?: return
 
@@ -112,7 +125,7 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
             char == ' ' -> handleTrigger(CommitTrigger.Space)
             char == '\n' -> handleTrigger(CommitTrigger.Newline)
             else -> {
-                commitCurrentComposition(inputConnection, CommitTrigger.Space)
+                commitCurrentComposition(CommitTrigger.Space)
                 inputConnection.commitText(char.toString(), 1)
             }
         }
@@ -122,13 +135,16 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
         val inputConnection = currentInputConnection ?: return
 
         if (!transliterationEnabled) {
-            inputConnection.commitText(trigger.marker.toString(), 1)
+            commitMarker(inputConnection, trigger)
             keyboardView?.setPreview("")
             return
         }
 
-        commitCurrentComposition(inputConnection, trigger)
-        inputConnection.commitText(trigger.marker.toString(), 1)
+        val committedText = commitCurrentComposition(trigger)
+        val marker = trigger.marker.toString()
+        inputConnection.finishComposingText()
+        inputConnection.commitText(committedText + marker, 1)
+        keyboardView?.setPreview("")
     }
 
     private fun handleBackspace() {
@@ -147,16 +163,18 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
         inputConnection.deleteSurroundingText(1, 0)
     }
 
-    private fun commitCurrentComposition(inputConnection: InputConnection, trigger: CommitTrigger) {
-        if (!controller.hasComposition()) return
+    private fun commitCurrentComposition(trigger: CommitTrigger): String {
+        if (!controller.hasComposition()) return ""
 
-        val committed = controller.commit(trigger) ?: return
+        return controller.commit(trigger)?.amharicText.orEmpty()
+    }
 
-        inputConnection.finishComposingText()
-        if (committed.amharicText.isNotBlank()) {
-            inputConnection.commitText(committed.amharicText, 1)
+    private fun commitMarker(inputConnection: InputConnection, trigger: CommitTrigger) {
+        val marker = trigger.marker.toString()
+        val beforeCursor = inputConnection.getTextBeforeCursor(marker.length, 0)?.toString().orEmpty()
+        if (!beforeCursor.endsWith(marker)) {
+            inputConnection.commitText(marker, 1)
         }
-        keyboardView?.setPreview("")
     }
 
     private fun isSecureInputType(attribute: EditorInfo?): Boolean {
@@ -174,6 +192,10 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
     }
 
     private fun buildStatusLabel(attribute: EditorInfo?): String {
+        if (amharicModeRequested && !isSecureInputType(attribute)) {
+            return ""
+        }
+
         val inputClass = when (attribute?.inputType?.and(EditorInfo.TYPE_MASK_CLASS)) {
             EditorInfo.TYPE_CLASS_TEXT -> "text"
             EditorInfo.TYPE_CLASS_NUMBER -> "number"
@@ -186,7 +208,7 @@ class AmharicImeService : InputMethodService(), AmharicKeyboardView.Listener {
         return if (secure) {
             "Secure field detected, Amharic keyboard limited"
         } else {
-            "Typing in $inputClass field"
+            "English typing in $inputClass field"
         }
     }
 }

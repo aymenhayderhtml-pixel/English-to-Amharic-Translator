@@ -19,46 +19,49 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
         fun onBackspace()
         fun onHideKeyboard()
         fun onShowKeyboardPicker()
+        fun onToggleTypingMode()
     }
+
+    var listener: Listener? = null
 
     private lateinit var previewTextView: TextView
     private lateinit var statusTextView: TextView
+    private lateinit var modeButton: Button
+    private lateinit var pickerButton: Button
+    private lateinit var hideButton: Button
     private lateinit var shiftButton: Button
-    private var shiftEnabled: Boolean = false
-    var listener: Listener? = null
+
+    private var shiftEnabled = false
+    private var amharicModeEnabled = true
+    private var transliterationActive = true
 
     init {
         orientation = VERTICAL
         setPadding(dp(10), dp(8), dp(10), dp(10))
-        background = roundedBackground(fill = 0xFFF5F6F8.toInt(), stroke = 0xFFD3D8E0.toInt(), radius = 24f)
+        background = roundedBackground(fill = 0xFF0F1115.toInt(), stroke = 0xFF202632.toInt(), radius = 24f)
 
-        val header = makeHeader()
-        val previewCard = makePreviewCard()
-        val numberRow = makeKeyRow("1234567890".toCharArray(), keyHeight = dp(42), keyWeight = 1f)
-        val qwertyRow = makeKeyRow("qwertyuiop".toCharArray(), keyHeight = dp(48), keyWeight = 1f)
-        val asdfRow = makeKeyRow("asdfghjkl".toCharArray(), keyHeight = dp(48), keyWeight = 1f, offsetStart = dp(18))
-        val zxcvRow = makeShiftRow()
-        val bottomRow = makeBottomRow()
-
-        addView(header)
-        addView(previewCard)
-        addView(numberRow)
-        addView(qwertyRow)
-        addView(asdfRow)
-        addView(zxcvRow)
-        addView(bottomRow)
+        addView(makeHeader())
+        addView(makePreviewCard())
+        addView(makeKeyRow("1234567890".toCharArray(), keyHeight = dp(42), keyWeight = 1f))
+        addView(makeKeyRow("qwertyuiop".toCharArray(), keyHeight = dp(48), keyWeight = 1f))
+        addView(makeKeyRow("asdfghjkl".toCharArray(), keyHeight = dp(48), keyWeight = 1f, offsetStart = dp(18)))
+        addView(makeShiftRow())
+        addView(makeBottomRow())
     }
 
     fun setPreview(text: String) {
-        previewTextView.text = if (text.isBlank()) {
-            "Type English letters. Space commits Amharic."
-        } else {
-            text
-        }
+        previewTextView.text = text
     }
 
     fun setStatus(text: String) {
         statusTextView.text = text
+        statusTextView.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+    }
+
+    fun setTypingMode(amharicEnabled: Boolean, transliterationEnabled: Boolean) {
+        amharicModeEnabled = amharicEnabled
+        transliterationActive = transliterationEnabled
+        updateModeLabel()
     }
 
     private fun makeHeader(): View {
@@ -71,21 +74,52 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
         }
 
         val title = TextView(context).apply {
-            text = "Amharic Keyboard"
-            setTextColor(0xFF4A5568.toInt())
+            text = "Amharic"
+            setTextColor(0xFFB8C0CC.toInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTypeface(typeface, Typeface.BOLD)
         }
 
+        modeButton = makeActionButton(
+            label = "አ",
+            onClick = { listener?.onToggleTypingMode() },
+            keyWidth = LayoutParams.WRAP_CONTENT,
+            keyHeight = dp(32),
+            keyWeight = 0f,
+            compact = true,
+            accent = true
+        )
+
+        pickerButton = makeActionButton(
+            label = "🌐",
+            onClick = { listener?.onShowKeyboardPicker() },
+            keyWidth = LayoutParams.WRAP_CONTENT,
+            keyHeight = dp(32),
+            keyWeight = 0f,
+            compact = true
+        )
+
+        hideButton = makeActionButton(
+            label = "⌄",
+            onClick = { listener?.onHideKeyboard() },
+            keyWidth = LayoutParams.WRAP_CONTENT,
+            keyHeight = dp(32),
+            keyWeight = 0f,
+            compact = true
+        )
+
         statusTextView = TextView(context).apply {
-            text = "Ready"
-            setTextColor(0xFF718096.toInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            text = ""
+            setTextColor(0xFF8A93A3.toInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             gravity = Gravity.END
+            visibility = View.GONE
         }
 
         row.addView(title, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(statusTextView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        row.addView(modeButton)
+        row.addView(pickerButton)
+        row.addView(hideButton)
         return row
     }
 
@@ -96,15 +130,16 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
                 bottomMargin = dp(8)
             }
             setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = roundedBackground(fill = 0xFFFFFFFF.toInt(), stroke = 0xFFE2E8F0.toInt(), radius = 20f)
+            background = roundedBackground(fill = 0xFF171B22.toInt(), stroke = 0xFF2A313D.toInt(), radius = 20f)
         }
 
         previewTextView = TextView(context).apply {
-            text = "Type English letters. Space commits Amharic."
-            setTextColor(0xFF1A202C.toInt())
+            text = ""
+            setTextColor(0xFFF3F5F8.toInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.START
+            minHeight = dp(28)
         }
 
         card.addView(previewTextView)
@@ -161,21 +196,13 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
         )
 
         row.addView(shiftButton)
-        row.addView(
-            makeLetterButton(
-                label = "z",
-                onClick = { listener?.onLatinKey(applyShift('z')) },
-                keyHeight = dp(48),
-                keyWeight = 1f
-            )
-        )
-        row.addView(makeLetterButton(label = "x", onClick = { listener?.onLatinKey(applyShift('x')) }, keyHeight = dp(48), keyWeight = 1f))
-        row.addView(makeLetterButton(label = "c", onClick = { listener?.onLatinKey(applyShift('c')) }, keyHeight = dp(48), keyWeight = 1f))
-        row.addView(makeLetterButton(label = "v", onClick = { listener?.onLatinKey(applyShift('v')) }, keyHeight = dp(48), keyWeight = 1f))
-        row.addView(makeLetterButton(label = "b", onClick = { listener?.onLatinKey(applyShift('b')) }, keyHeight = dp(48), keyWeight = 1f))
-        row.addView(makeLetterButton(label = "n", onClick = { listener?.onLatinKey(applyShift('n')) }, keyHeight = dp(48), keyWeight = 1f))
-        row.addView(makeLetterButton(label = "m", onClick = { listener?.onLatinKey(applyShift('m')) }, keyHeight = dp(48), keyWeight = 1f))
-
+        row.addView(makeLetterButton("z", { listener?.onLatinKey(applyShift('z')) }, dp(48), 1f))
+        row.addView(makeLetterButton("x", { listener?.onLatinKey(applyShift('x')) }, dp(48), 1f))
+        row.addView(makeLetterButton("c", { listener?.onLatinKey(applyShift('c')) }, dp(48), 1f))
+        row.addView(makeLetterButton("v", { listener?.onLatinKey(applyShift('v')) }, dp(48), 1f))
+        row.addView(makeLetterButton("b", { listener?.onLatinKey(applyShift('b')) }, dp(48), 1f))
+        row.addView(makeLetterButton("n", { listener?.onLatinKey(applyShift('n')) }, dp(48), 1f))
+        row.addView(makeLetterButton("m", { listener?.onLatinKey(applyShift('m')) }, dp(48), 1f))
         row.addView(
             makeActionButton(
                 label = "⌫",
@@ -198,24 +225,13 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
 
         row.addView(
             makeActionButton(
-                label = "🌐",
-                onClick = { listener?.onShowKeyboardPicker() },
-                keyWidth = 0,
-                keyHeight = dp(50),
-                keyWeight = 1.1f
-            )
-        )
-
-        row.addView(
-            makeActionButton(
                 label = ",",
                 onClick = { listener?.onCommitTrigger(CommitTrigger.Comma) },
                 keyWidth = 0,
                 keyHeight = dp(50),
-                keyWeight = 0.9f
+                keyWeight = 1.0f
             )
         )
-
         row.addView(
             makeActionButton(
                 label = "space",
@@ -225,7 +241,6 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
                 keyWeight = 3.2f
             )
         )
-
         row.addView(
             makeActionButton(
                 label = ".",
@@ -235,36 +250,20 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
                 keyWeight = 0.9f
             )
         )
-
         row.addView(
             makeActionButton(
                 label = "↵",
                 onClick = { listener?.onCommitTrigger(CommitTrigger.Newline) },
                 keyWidth = 0,
                 keyHeight = dp(50),
-                keyWeight = 1.1f
-            )
-        )
-
-        row.addView(
-            makeActionButton(
-                label = "Hide",
-                onClick = { listener?.onHideKeyboard() },
-                keyWidth = 0,
-                keyHeight = dp(50),
-                keyWeight = 1.1f
+                keyWeight = 1.0f
             )
         )
 
         return row
     }
 
-    private fun makeLetterButton(
-        label: String,
-        onClick: () -> Unit,
-        keyHeight: Int,
-        keyWeight: Float
-    ): Button {
+    private fun makeLetterButton(label: String, onClick: () -> Unit, keyHeight: Int, keyWeight: Float): Button {
         return makeActionButton(
             label = label,
             onClick = onClick,
@@ -279,15 +278,21 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
         onClick: () -> Unit,
         keyWidth: Int,
         keyHeight: Int,
-        keyWeight: Float
+        keyWeight: Float,
+        compact: Boolean = false,
+        accent: Boolean = false
     ): Button {
         return Button(context).apply {
             text = label
-            textSize = 15f
-            setTextColor(0xFF1A202C.toInt())
+            textSize = if (compact) 13f else 15f
+            setTextColor(if (accent) 0xFFF4D48A.toInt() else 0xFFF3F5F8.toInt())
             isAllCaps = false
             setOnClickListener { onClick() }
-            background = roundedBackground(fill = 0xFFFFFFFF.toInt(), stroke = 0xFFCBD5E0.toInt(), radius = 16f)
+            background = roundedBackground(
+                fill = if (accent) 0xFF2E3644.toInt() else 0xFF232831.toInt(),
+                stroke = if (accent) 0xFF4B5568.toInt() else 0xFF323A47.toInt(),
+                radius = if (compact) 12f else 16f
+            )
             layoutParams = LayoutParams(keyWidth, keyHeight, keyWeight).apply {
                 marginStart = dp(3)
                 marginEnd = dp(3)
@@ -306,7 +311,16 @@ class AmharicKeyboardView(context: Context) : LinearLayout(context) {
 
     private fun refreshShiftLabel() {
         shiftButton.alpha = if (shiftEnabled) 1.0f else 0.75f
-        shiftButton.text = if (shiftEnabled) "⇧" else "⇧"
+        shiftButton.text = "⇧"
+    }
+
+    private fun updateModeLabel() {
+        modeButton.text = when {
+            !amharicModeEnabled -> "E"
+            transliterationActive -> "አ"
+            else -> "E"
+        }
+        modeButton.alpha = if (transliterationActive || !amharicModeEnabled) 1.0f else 0.75f
     }
 
     private fun roundedBackground(fill: Int, stroke: Int, radius: Float): GradientDrawable {

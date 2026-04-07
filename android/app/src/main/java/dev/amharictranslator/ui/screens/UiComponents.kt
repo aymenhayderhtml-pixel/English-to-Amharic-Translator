@@ -241,7 +241,7 @@ fun KeyboardField(
         onValueChange = onValueChange,
         minLines = 5,
         maxLines = 8,
-        label = { Text("Type English letters here") },
+        label = { Text("Keyboard input") },
         placeholder = { Text("Example: selam friend market", color = AppColors.TextMuted) },
         shape = RoundedCornerShape(18.dp),
         colors = textFieldColors(AppColors.Teal)
