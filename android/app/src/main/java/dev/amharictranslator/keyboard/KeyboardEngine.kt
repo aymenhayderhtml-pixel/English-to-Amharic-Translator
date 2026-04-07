@@ -73,12 +73,12 @@ class LearningSuggestionSource(
                     return@mapNotNull null
                 }
 
-                val candidate = parts[1]
-                if (prefix.isNotBlank() && !candidate.startsWith(prefix)) {
+                val nextWord = parts[1]
+                if (prefix.isNotBlank() && !nextWord.startsWith(prefix)) {
                     return@mapNotNull null
                 }
 
-                candidate to count
+                nextWord to count
             }
             .sortedWith(
                 compareByDescending<Pair<String, Int>> { it.second }
@@ -105,7 +105,9 @@ class KeyboardEngine(
         }
 
         val insertion = detectSimpleInsertion(previous, next)
-            ?: return next.asResult()
+        if (insertion == null) {
+            return next.asResult()
+        }
 
         val trigger = CommitTrigger.fromChar(insertion.insertedChar)
             ?: return next.asResult()
@@ -118,11 +120,16 @@ class KeyboardEngine(
     }
 
     fun commitLastToken(text: String, cursor: Int, trigger: CommitTrigger): KeyboardEditResult {
+        if (text.isBlank()) {
+            val emptyValue = TextFieldValue(text = text, selection = TextRange(cursor.coerceAtLeast(0)))
+            return emptyValue.asResult()
+        }
+
         val safeCursor = cursor.coerceIn(0, text.length)
         val triggerIndex = safeCursor - 1
-
         if (triggerIndex !in text.indices || text[triggerIndex] != trigger.marker) {
-            return TextFieldValue(text, TextRange(safeCursor)).asResult()
+            val currentValue = TextFieldValue(text = text, selection = TextRange(safeCursor))
+            return currentValue.asResult()
         }
 
         var tokenStart = triggerIndex
@@ -132,18 +139,21 @@ class KeyboardEngine(
 
         val tokenEnd = triggerIndex
         if (tokenStart == tokenEnd) {
-            return TextFieldValue(text, TextRange(safeCursor)).asResult()
+            val currentValue = TextFieldValue(text = text, selection = TextRange(safeCursor))
+            return currentValue.asResult()
         }
 
         val rawToken = text.substring(tokenStart, tokenEnd)
         if (!AmharicTranslator.isAsciiLatinToken(rawToken)) {
-            return TextFieldValue(text, TextRange(safeCursor)).asResult()
+            val currentValue = TextFieldValue(text = text, selection = TextRange(safeCursor))
+            return currentValue.asResult()
         }
 
         val normalizedToken = AmharicTranslator.normalizeWord(rawToken)
         val transliterated = AmharicTranslator.transliterateWord(normalizedToken, dictionary)
         if (!transliterated.changed) {
-            return TextFieldValue(text, TextRange(safeCursor)).asResult()
+            val currentValue = TextFieldValue(text = text, selection = TextRange(safeCursor))
+            return currentValue.asResult()
         }
 
         val updatedText = buildString {
@@ -152,7 +162,10 @@ class KeyboardEngine(
             append(text.substring(tokenEnd))
         }
         val updatedCursor = safeCursor + (transliterated.text.length - rawToken.length)
-        val updatedValue = TextFieldValue(updatedText, TextRange(updatedCursor))
+        val updatedValue = TextFieldValue(
+            text = updatedText,
+            selection = TextRange(updatedCursor)
+        )
 
         return KeyboardEditResult(
             value = updatedValue,
@@ -165,48 +178,63 @@ class KeyboardEngine(
     fun suggest(currentToken: String, previousCommittedWord: String?): List<Suggestion> {
         val normalizedToken = AmharicTranslator.normalizeWord(currentToken)
         val normalizedPrevious = previousCommittedWord?.let(AmharicTranslator::normalizeWord).orEmpty()
-        val suggestions = mutableListOf<Suggestion>()
+
+        val combined = mutableListOf<Suggestion>()
 
         if (normalizedToken.isBlank()) {
             if (normalizedPrevious.isNotBlank()) {
-                suggestionSource.nextWordSuggestions(normalizedPrevious, "", 4).forEach { latin ->
-                    suggestions += Suggestion(
-                        latin = latin,
-                        amharic = AmharicTranslator.previewForSuggestion(latin, dictionary),
-                        kind = "next-word"
-                    )
-                }
+                suggestionSource
+                    .nextWordSuggestions(normalizedPrevious, prefix = "", limit = 4)
+                    .forEach { latin ->
+                        combined += Suggestion(
+                            latin = latin,
+                            amharic = AmharicTranslator.previewForSuggestion(latin, dictionary),
+                            kind = "next-word"
+                        )
+                    }
             }
 
             dictionary.syllableRules.take(6).forEach { rule ->
-                suggestions += Suggestion(rule.latin, rule.amharic, "starter")
+                combined += Suggestion(
+                    latin = rule.latin,
+                    amharic = rule.amharic,
+                    kind = "starter"
+                )
             }
 
-            return suggestions.distinctBy { "${it.latin}:${it.amharic}" }
+            return combined.distinctBy { "${it.latin}:${it.amharic}" }
         }
 
-        suggestionSource.nextWordSuggestions(normalizedPrevious, normalizedToken, 3).forEach { latin ->
-            suggestions += Suggestion(
-                latin = latin,
-                amharic = AmharicTranslator.previewForSuggestion(latin, dictionary),
-                kind = "next-word"
-            )
-        }
+        suggestionSource
+            .nextWordSuggestions(normalizedPrevious, normalizedToken, limit = 3)
+            .forEach { latin ->
+                combined += Suggestion(
+                    latin = latin,
+                    amharic = AmharicTranslator.previewForSuggestion(latin, dictionary),
+                    kind = "next-word"
+                )
+            }
 
-        suggestionSource.prefixWordSuggestions(normalizedToken, 4).forEach { latin ->
-            suggestions += Suggestion(
-                latin = latin,
-                amharic = AmharicTranslator.previewForSuggestion(latin, dictionary),
-                kind = "learned"
-            )
-        }
+        suggestionSource
+            .prefixWordSuggestions(normalizedToken, limit = 4)
+            .forEach { latin ->
+                combined += Suggestion(
+                    latin = latin,
+                    amharic = AmharicTranslator.previewForSuggestion(latin, dictionary),
+                    kind = "learned"
+                )
+            }
 
         dictionary.wordHints.keys
             .asSequence()
             .filter { it.startsWith(normalizedToken) }
             .take(4)
             .forEach { latin ->
-                suggestions += Suggestion(latin, dictionary.wordHints.getValue(latin), "word")
+                combined += Suggestion(
+                    latin = latin,
+                    amharic = dictionary.wordHints.getValue(latin),
+                    kind = "word"
+                )
             }
 
         dictionary.syllableRules
@@ -214,26 +242,40 @@ class KeyboardEngine(
             .filter { it.latin.startsWith(normalizedToken) }
             .take(6)
             .forEach { rule ->
-                suggestions += Suggestion(rule.latin, rule.amharic, "syllable")
+                combined += Suggestion(
+                    latin = rule.latin,
+                    amharic = rule.amharic,
+                    kind = "syllable"
+                )
             }
 
-        return suggestions
+        return combined
             .distinctBy { "${it.latin}:${it.amharic}" }
             .sortedWith(
                 compareByDescending<Suggestion> { suggestionSource.wordFrequency(it.latin) }
                     .thenBy { it.latin.length }
-                    .thenBy { it.latin }
             )
             .take(8)
     }
 
     fun currentTokenAtCursor(value: TextFieldValue): String {
-        return AmharicTranslator.currentLatinToken(value.text, value.selection.start)
+        return AmharicTranslator.currentLatinToken(
+            text = value.text,
+            cursor = value.selection.start
+        )
     }
 
-    private fun detectSimpleInsertion(previous: TextFieldValue, next: TextFieldValue): SimpleInsertion? {
-        if (!previous.selection.collapsed || !next.selection.collapsed) return null
-        if (next.text.length != previous.text.length + 1) return null
+    private fun detectSimpleInsertion(
+        previous: TextFieldValue,
+        next: TextFieldValue
+    ): SimpleInsertion? {
+        if (!previous.selection.collapsed || !next.selection.collapsed) {
+            return null
+        }
+
+        if (next.text.length != previous.text.length + 1) {
+            return null
+        }
 
         var prefix = 0
         while (
@@ -256,9 +298,14 @@ class KeyboardEngine(
         }
 
         val insertedText = next.text.substring(prefix, nextSuffix + 1)
-        if (insertedText.length != 1) return null
+        if (insertedText.length != 1) {
+            return null
+        }
 
-        return SimpleInsertion(prefix, insertedText.first())
+        return SimpleInsertion(
+            insertedAt = prefix,
+            insertedChar = insertedText.first()
+        )
     }
 
     private fun TextFieldValue.asResult(): KeyboardEditResult {

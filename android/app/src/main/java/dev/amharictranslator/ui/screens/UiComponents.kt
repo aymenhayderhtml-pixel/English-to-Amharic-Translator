@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -145,9 +144,9 @@ fun MetricRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        MetricChip("Sessions", learnedSessions.toString(), AppColors.Teal, Modifier.weight(1f))
-        MetricChip("Words", uniqueWords.toString(), AppColors.Gold, Modifier.weight(1f))
-        MetricChip("Phrases", uniquePhrases.toString(), AppColors.Terracotta, Modifier.weight(1f))
+        MetricChip(label = "Sessions", value = learnedSessions.toString(), accentColor = AppColors.Teal)
+        MetricChip(label = "Words", value = uniqueWords.toString(), accentColor = AppColors.Gold)
+        MetricChip(label = "Phrases", value = uniquePhrases.toString(), accentColor = AppColors.Terracotta)
     }
 }
 
@@ -155,11 +154,10 @@ fun MetricRow(
 private fun MetricChip(
     label: String,
     value: String,
-    accentColor: Color,
-    modifier: Modifier = Modifier
+    accentColor: Color
 ) {
     Surface(
-        modifier = modifier,
+        modifier = Modifier.fillMaxWidth(0.31f),
         shape = RoundedCornerShape(14.dp),
         color = accentColor.copy(alpha = 0.08f),
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
@@ -227,8 +225,8 @@ fun OutputCard(
 
 @Composable
 fun KeyboardField(
-    value: TextFieldValue,
-    onValueChange: (TextFieldValue) -> Unit,
+    value: androidx.compose.ui.text.input.TextFieldValue,
+    onValueChange: (androidx.compose.ui.text.input.TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
     testTag: String
 ) {
@@ -311,7 +309,7 @@ fun ActionRow(
             ),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
         ) {
-            Text(primaryLabel, fontWeight = FontWeight.SemiBold)
+            Text(text = primaryLabel, fontWeight = FontWeight.SemiBold)
         }
 
         TextButton(
@@ -320,7 +318,7 @@ fun ActionRow(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
         ) {
-            Text(secondaryLabel, fontWeight = FontWeight.SemiBold)
+            Text(text = secondaryLabel, fontWeight = FontWeight.SemiBold)
         }
 
         TextButton(
@@ -329,7 +327,7 @@ fun ActionRow(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
         ) {
-            Text(tertiaryLabel, fontWeight = FontWeight.SemiBold)
+            Text(text = tertiaryLabel, fontWeight = FontWeight.SemiBold)
         }
     }
 }

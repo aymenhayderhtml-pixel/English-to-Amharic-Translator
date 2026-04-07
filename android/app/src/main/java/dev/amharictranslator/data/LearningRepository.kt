@@ -154,7 +154,7 @@ data class LearningCache(
         get() = phraseCounts.size
 }
 
-object LearningSettings {
+object SettingKeys {
     const val KEYBOARD_DRAFT = "keyboard_draft"
     const val KEYBOARD_CURSOR = "keyboard_cursor"
     const val TRANSLATOR_DRAFT = "translator_draft"
@@ -172,16 +172,18 @@ class LearningRepository private constructor(
             wordCounts = dao.getWordCounts().associate { it.word to it.count },
             phraseCounts = dao.getPhraseCounts().associate { it.phrase to it.count },
             bigramCounts = dao.getBigramCounts().associate { "${it.previousWord}|${it.nextWord}" to it.count },
-            recentWords = readList(LearningSettings.RECENT_WORDS),
-            recentPhrases = readList(LearningSettings.RECENT_PHRASES),
-            learnedSessions = readInt(LearningSettings.LEARNED_SESSIONS)
+            recentWords = readList(SettingKeys.RECENT_WORDS),
+            recentPhrases = readList(SettingKeys.RECENT_PHRASES),
+            learnedSessions = readInt(SettingKeys.LEARNED_SESSIONS)
         )
     }
 
     suspend fun recordCommittedWord(word: String, previousWord: String?) = withContext(Dispatchers.IO) {
         val normalizedWord = AmharicTranslator.normalizeWord(word)
         val normalizedPrevious = previousWord?.let(AmharicTranslator::normalizeWord).orEmpty()
-        if (normalizedWord.isBlank()) return@withContext
+        if (normalizedWord.isBlank()) {
+            return@withContext
+        }
 
         incrementWord(normalizedWord)
         if (normalizedPrevious.isNotBlank()) {
@@ -195,7 +197,9 @@ class LearningRepository private constructor(
 
     suspend fun recordAcceptedPhrase(phrase: String) = withContext(Dispatchers.IO) {
         val normalizedPhrase = AmharicTranslator.normalizeEnglish(phrase)
-        if (normalizedPhrase.isBlank()) return@withContext
+        if (normalizedPhrase.isBlank()) {
+            return@withContext
+        }
 
         incrementPhrase(normalizedPhrase)
 
@@ -224,17 +228,22 @@ class LearningRepository private constructor(
         dao.clearBigrams()
         dao.deleteSettings(
             listOf(
-                LearningSettings.LEARNED_SESSIONS,
-                LearningSettings.RECENT_WORDS,
-                LearningSettings.RECENT_PHRASES,
-                LearningSettings.LAST_COMMITTED_WORD
+                SettingKeys.LEARNED_SESSIONS,
+                SettingKeys.RECENT_WORDS,
+                SettingKeys.RECENT_PHRASES,
+                SettingKeys.LAST_COMMITTED_WORD
             )
         )
     }
 
     private suspend fun incrementSessions() {
-        val nextValue = readInt(LearningSettings.LEARNED_SESSIONS) + 1
-        dao.upsertSetting(AppSettingEntity(LearningSettings.LEARNED_SESSIONS, nextValue.toString()))
+        val nextValue = readInt(SettingKeys.LEARNED_SESSIONS) + 1
+        dao.upsertSetting(
+            AppSettingEntity(
+                key = SettingKeys.LEARNED_SESSIONS,
+                value = nextValue.toString()
+            )
+        )
     }
 
     private suspend fun trimTables() {
@@ -259,11 +268,17 @@ class LearningRepository private constructor(
     }
 
     private suspend fun writeRecentWord(word: String) {
-        writeList(LearningSettings.RECENT_WORDS, updateRecentList(readList(LearningSettings.RECENT_WORDS), word))
+        writeList(
+            key = SettingKeys.RECENT_WORDS,
+            values = updateRecentList(readList(SettingKeys.RECENT_WORDS), word)
+        )
     }
 
     private suspend fun writeRecentPhrase(phrase: String) {
-        writeList(LearningSettings.RECENT_PHRASES, updateRecentList(readList(LearningSettings.RECENT_PHRASES), phrase))
+        writeList(
+            key = SettingKeys.RECENT_PHRASES,
+            values = updateRecentList(readList(SettingKeys.RECENT_PHRASES), phrase)
+        )
     }
 
     private suspend fun readInt(key: String): Int {
@@ -290,7 +305,12 @@ class LearningRepository private constructor(
     private suspend fun writeList(key: String, values: List<String>) {
         val jsonArray = JSONArray()
         values.forEach(jsonArray::put)
-        dao.upsertSetting(AppSettingEntity(key, jsonArray.toString()))
+        dao.upsertSetting(
+            AppSettingEntity(
+                key = key,
+                value = jsonArray.toString()
+            )
+        )
     }
 
     private fun updateRecentList(existing: List<String>, value: String): List<String> {
@@ -311,6 +331,16 @@ class LearningRepository private constructor(
         private const val MAX_PHRASES = 2000
         private const val MAX_BIGRAMS = 10000
         private const val MAX_RECENT = 8
+
+        object SettingKeys {
+            const val KEYBOARD_DRAFT = "keyboard_draft"
+            const val KEYBOARD_CURSOR = "keyboard_cursor"
+            const val TRANSLATOR_DRAFT = "translator_draft"
+            const val LAST_COMMITTED_WORD = "last_committed_word"
+            const val LEARNED_SESSIONS = "learned_sessions"
+            const val RECENT_WORDS = "recent_words"
+            const val RECENT_PHRASES = "recent_phrases"
+        }
 
         fun create(context: Context): LearningRepository {
             return LearningRepository(LearningDatabase.getInstance(context).learningDao())

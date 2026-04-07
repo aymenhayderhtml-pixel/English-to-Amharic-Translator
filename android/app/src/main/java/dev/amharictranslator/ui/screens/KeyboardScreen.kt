@@ -2,6 +2,9 @@ package dev.amharictranslator.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
@@ -30,6 +33,7 @@ fun KeyboardScreen(
         subtitle = "Press space, enter, or punctuation to convert just the last word."
     ) {
         Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             InfoLine("Only the Latin token before the cursor is converted. Mixed text and backspace stay safe.")

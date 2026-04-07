@@ -2,6 +2,8 @@ package dev.amharictranslator.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,7 @@ fun TranslatorScreen(
         subtitle = "Use this when you want a phrasebook result or a full-sentence preview."
     ) {
         Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             InfoLine("Translation stays separate from typing so the keyboard can stay fast and predictable.")
