@@ -29,14 +29,14 @@ fun KeyboardScreen(
     SectionCard(
         accentColor = AppColors.Teal,
         tag = "KEYBOARD",
-        title = "Type in English, commit in Amharic",
-        subtitle = "Press space, enter, or punctuation to convert just the last word."
+        title = "Live Amharic keyboard",
+        subtitle = "Press space, enter, or punctuation to convert the last word."
     ) {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            InfoLine("Only the Latin token before the cursor is converted. Mixed text and backspace stay safe.")
+            InfoLine("Only the token before the cursor is converted. Mixed text and backspace stay safe.")
 
             KeyboardField(
                 value = keyboardValue,
@@ -60,9 +60,9 @@ fun KeyboardScreen(
             OutputCard(
                 label = "Current text",
                 accentColor = AppColors.Teal,
-                output = keyboardValue.text.ifBlank { "Your committed Amharic text appears here as you type." },
+                output = keyboardValue.text.ifBlank { "Committed text appears here." },
                 supporting = if (currentToken.isBlank()) {
-                    "No active Latin token. Type a word, then press space."
+                    "No active token."
                 } else {
                     "Active token: $currentToken"
                 }
@@ -70,7 +70,7 @@ fun KeyboardScreen(
 
             InfoLine("Suggestions follow the current token, not the whole field.")
             if (suggestions.isEmpty()) {
-                InfoLine("No suggestions yet. Type a few letters or commit some words.")
+                InfoLine("No suggestions yet.")
             } else {
                 SuggestionRow(
                     items = suggestions,
