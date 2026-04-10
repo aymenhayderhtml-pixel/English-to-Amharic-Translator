@@ -32,11 +32,21 @@ object AmharicTranslator {
     fun translate(input: String, dictionary: DictionaryData): TranslationResult {
         val normalized = normalizeEnglish(input)
         if (normalized.isBlank()) {
-            return TranslationResult("", "Waiting for input", "Local-only preview", "Dictionary asset")
+            return TranslationResult(
+                output = "",
+                mode = "Waiting for input",
+                confidence = "Local-only preview",
+                source = "Dictionary asset"
+            )
         }
 
         dictionary.phrasebook[normalized]?.let { exact ->
-            return TranslationResult(exact, "Phrasebook match", "High confidence", "Dictionary asset")
+            return TranslationResult(
+                output = exact,
+                mode = "Phrasebook match",
+                confidence = "High confidence",
+                source = "Dictionary asset"
+            )
         }
 
         return TranslationResult(
@@ -70,11 +80,12 @@ object AmharicTranslator {
             return TransliterationWord("", changed = false)
         }
 
-        exactWordMatch(normalized, dictionary)?.let { exact ->
+        val exact = exactWordMatch(normalized, dictionary)
+        if (exact != null) {
             return TransliterationWord(exact, changed = true)
         }
 
-        val builder = StringBuilder()
+        val result = StringBuilder()
         var index = 0
         var changed = false
 
@@ -83,10 +94,10 @@ object AmharicTranslator {
 
             for (rule in dictionary.syllableRules) {
                 if (normalized.startsWith(rule.latin, index)) {
-                    builder.append(rule.amharic)
+                    result.append(rule.amharic)
                     index += rule.latin.length
-                    changed = true
                     matched = true
+                    changed = true
                     break
                 }
             }
@@ -95,19 +106,19 @@ object AmharicTranslator {
                 when (val current = normalized[index]) {
                     '\'' -> index += 1
                     '-' -> {
-                        builder.append(' ')
+                        result.append(' ')
                         changed = true
                         index += 1
                     }
                     else -> {
-                        builder.append(current)
+                        result.append(current)
                         index += 1
                     }
                 }
             }
         }
 
-        return TransliterationWord(builder.toString(), changed)
+        return TransliterationWord(result.toString(), changed)
     }
 
     fun currentLatinToken(text: String, cursor: Int = text.length): String {
@@ -117,9 +128,9 @@ object AmharicTranslator {
 
     fun findCurrentLatinTokenBounds(text: String, cursor: Int = text.length): TokenBounds? {
         if (text.isEmpty()) return null
-
         val safeCursor = cursor.coerceIn(0, text.length)
         var start = safeCursor
+
         while (start > 0 && isLatinTokenCharacter(text[start - 1])) {
             start -= 1
         }
@@ -135,7 +146,10 @@ object AmharicTranslator {
         return if (isAsciiLatinToken(token)) TokenBounds(start, end) else null
     }
 
-    fun replaceCurrentLatinToken(value: TextFieldValue, replacement: String): TextFieldValue {
+    fun replaceCurrentLatinToken(
+        value: TextFieldValue,
+        replacement: String
+    ): TextFieldValue {
         val bounds = findCurrentLatinTokenBounds(value.text, value.selection.start)
             ?: return value
 
@@ -144,8 +158,12 @@ object AmharicTranslator {
             append(replacement)
             append(value.text.substring(bounds.endExclusive))
         }
+
         val newCursor = bounds.start + replacement.length
-        return value.copy(text = updatedText, selection = TextRange(newCursor))
+        return value.copy(
+            text = updatedText,
+            selection = TextRange(newCursor)
+        )
     }
 
     fun previewForSuggestion(latin: String, dictionary: DictionaryData): String {
@@ -174,9 +192,13 @@ object AmharicTranslator {
         return value.isNotBlank() && value.all(::isLatinTokenCharacter)
     }
 
-    private fun exactWordMatch(word: String, dictionary: DictionaryData): String? {
+    private fun exactWordMatch(
+        word: String,
+        dictionary: DictionaryData
+    ): String? {
         if (word.isBlank()) return null
-        return dictionary.wordHints[word] ?: dictionary.phrasebook[word]
+        return dictionary.wordHints[word]
+            ?: dictionary.phrasebook[word]?.takeIf { !it.contains(' ') || !word.contains(' ') }
     }
 
     private fun isLatinTokenCharacter(char: Char): Boolean {
