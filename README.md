@@ -5,7 +5,7 @@ An Android-first open-source project for:
 - offline English to Amharic translation
 - Amharic typing support
 - live input suggestions / prediction
-
+bb
 This repository now has:
 
 - a browser-based offline prototype at the root
